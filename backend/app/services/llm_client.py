@@ -1,0 +1,212 @@
+"""
+SOTA LLM Client (Groq Free Tier).
+Handles interactions with Groq's high-performance API (Llama 3 / Mixtral).
+"""
+
+import logging
+import json
+from typing import Any, Dict, List, Optional
+
+from groq import AsyncGroq
+from sentence_transformers import SentenceTransformer
+
+from app.config import settings
+
+logger = logging.getLogger(__name__)
+
+
+class LLMClient:
+    """Client for interacting with Groq LLM API and Local Embeddings."""
+
+    def __init__(self):
+        """Initialize LLM client."""
+        self.api_key = settings.groq_api_key
+        self.model_name = settings.llm_model
+        self.temperature = settings.llm_temperature
+        self.max_tokens = settings.llm_max_tokens
+
+        self.client: Optional[AsyncGroq] = None
+        self.embedding_model: Optional[SentenceTransformer] = None
+
+        logger.debug("LLMClient instantiated", extra={"model": self.model_name})
+
+    async def initialize(self) -> None:
+        """Initialize the Groq client and local embedding model."""
+        try:
+            logger.debug("Initializing Groq client...")
+            self.client = AsyncGroq(api_key=self.api_key)
+
+            logger.debug("Loading local embedding model: all-MiniLM-L6-v2...")
+            # Run on CPU is fine for small batches
+            self.embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+
+            logger.info("LLM client initialized successfully (Groq + SentenceTransformer)")
+
+        except Exception as e:
+            logger.error("Failed to initialize LLM client", extra={"error": str(e)}, exc_info=True)
+            raise
+
+    async def close(self) -> None:
+        """Close the client."""
+        logger.debug("Closing LLM client...")
+        if self.client:
+            await self.client.close()
+        self.client = None
+        self.embedding_model = None
+        logger.info("LLM client closed")
+
+    async def health_check(self) -> bool:
+        """Check if Groq API is accessible."""
+        try:
+            if not self.client:
+                return False
+
+            # Simple generation test
+            await self.client.chat.completions.create(
+                messages=[{"role": "user", "content": "ping"}], model=self.model_name, max_tokens=1
+            )
+            return True
+
+        except Exception:
+            logger.error("LLM health check failed", exc_info=True)
+            return False
+
+    async def generate_text(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+    ) -> str:
+        """Generate text using Groq."""
+        try:
+            if not self.client:
+                raise RuntimeError("LLM client not initialized")
+
+            messages = []
+            if system_prompt:
+                messages.append({"role": "system", "content": system_prompt})
+            messages.append({"role": "user", "content": prompt})
+
+            response = await self.client.chat.completions.create(
+                model=self.model_name,
+                messages=messages,  # type: ignore
+                temperature=temperature or self.temperature,
+                max_tokens=max_tokens or self.max_tokens,
+            )
+
+            return response.choices[0].message.content or ""
+
+        except Exception:
+            logger.error("Text generation failed", exc_info=True)
+            raise
+
+    async def generate_json(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        schema: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Generate JSON using Groq."""
+        try:
+            # Enforce JSON mode via system prompt
+            json_instruction = (
+                "\nIMPORTANT: You must respond with valid JSON only. No markdown, no explanations."
+            )
+            full_system = (system_prompt or "") + json_instruction
+
+            response_text = await self.generate_text(
+                prompt=prompt,
+                system_prompt=full_system,
+                temperature=0.001,  # Extremely low temp for consistent JSON
+            )
+
+            # Clean up potential markdown blocks
+            clean_text = response_text.replace("```json", "").replace("```", "").strip()
+
+            return json.loads(clean_text)
+
+        except Exception:
+            logger.error("JSON generation failed", exc_info=True)
+            raise
+
+    async def embed_text(self, text: str) -> List[float]:
+        """Generate local embeddings."""
+        try:
+            if not self.embedding_model:
+                raise RuntimeError("Embedding model not initialized")
+
+            # SentenceTransformer handles this synchronously
+            embedding = self.embedding_model.encode(text)
+            return embedding.tolist()
+
+        except Exception:
+            logger.error("Embedding generation failed", exc_info=True)
+            raise
+
+    async def embed_query(self, query: str) -> List[float]:
+        """Generate query embedding."""
+        return await self.embed_text(query)
+
+    async def analyze_image(
+        self,
+        image_url: Optional[str] = None,
+        image_data: Optional[bytes] = None,
+        mime_type: str = "image/jpeg",
+        prompt: str = "Describe this image in detail.",
+    ) -> str:
+        """
+        Analyze an image using Groq's Vision model.
+
+        Args:
+            image_url: URL of the image
+            image_data: Raw image bytes
+            mime_type: MIME type of the image (if providing data)
+            prompt: Question or instruction for the vision model
+
+        Returns:
+            Description or answer based on the image
+        """
+        try:
+            if not self.client:
+                raise RuntimeError("LLM client not initialized")
+
+            logger.debug("Calling Groq Vision API...", extra={"model": "llama-3.2-90b-vision-preview"})
+
+            # Prepare image content
+            img_content: Dict[str, Any] = {"type": "image_url", "image_url": {}}
+
+            if image_url:
+                img_content["image_url"]["url"] = image_url
+            elif image_data:
+                import base64
+                b64_data = base64.b64encode(image_data).decode("utf-8")
+                data_url = f"data:{mime_type};base64,{b64_data}"
+                img_content["image_url"]["url"] = data_url
+            else:
+                raise ValueError("Either image_url or image_data must be provided")
+
+            response = await self.client.chat.completions.create(
+                model="llama-3.2-90b-vision-preview",
+                messages=[  # type: ignore
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": prompt},
+                            img_content,
+                        ],
+                    }
+                ],
+                temperature=0.5,
+                max_tokens=1024,
+            )
+
+            return response.choices[0].message.content or ""
+
+        except Exception as e:
+            logger.error("Image analysis failed", exc_info=True)
+            return f"I could not analyze the image due to an error: {str(e)}"
+
+
+# Global singleton
+llm_client = LLMClient()

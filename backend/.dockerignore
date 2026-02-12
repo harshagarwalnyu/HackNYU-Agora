@@ -1,0 +1,12 @@
+__pycache__
+*.py[cod]
+*$py.class
+.venv
+venv
+env
+.git
+.gitignore
+.env
+.DS_Store
+.idea
+.vscode
