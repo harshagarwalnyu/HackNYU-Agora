@@ -5,7 +5,7 @@ Connects all nodes with conditional edges.
 
 import logging
 import time
-from typing import cast
+from typing import cast, Any
 
 from langgraph.graph import StateGraph, END
 from langgraph.graph.state import CompiledStateGraph
@@ -23,15 +23,17 @@ from app.graph.nodes.reflector import reflector_node
 logger = logging.getLogger(__name__)
 
 
+from typing import cast, Any, Callable, Awaitable
+
 # Node wrapper to add timing and message tracking
-def create_timed_node(node_func, node_name: str):
+def create_timed_node(node_func: Callable[[TutorState], Awaitable[TutorState]], node_name: str) -> Callable[[TutorState], Awaitable[TutorState]]:
     """
     Wrap a node function with timing and logging.
-
+    
     Args:
         node_func: Node function to wrap
         node_name: Name for logging
-
+        
     Returns:
         Wrapped function
     """
@@ -90,7 +92,7 @@ def routing_decision(state: TutorState) -> str:
         return "socrates"
 
 
-def build_tutor_graph() -> CompiledStateGraph:
+def build_tutor_graph() -> Any:
     """
     Build and compile the tutor state graph.
 
@@ -105,15 +107,15 @@ def build_tutor_graph() -> CompiledStateGraph:
     logger.debug("Adding nodes to graph...")
 
     # Add nodes with timing
-    workflow.add_node("load_memory", create_timed_node(load_memory_node, "load_memory"))
-    workflow.add_node("vision", create_timed_node(vision_node, "vision"))
-    workflow.add_node("router", create_timed_node(router_node, "router"))
-    workflow.add_node("rag", create_timed_node(rag_node, "rag"))
-    workflow.add_node("socrates", create_timed_node(socrates_node, "socrates"))
-    workflow.add_node("quiz", create_timed_node(quiz_node, "quiz"))
-    workflow.add_node("reflector", create_timed_node(reflector_node, "reflector"))
-    workflow.add_node("update_memory", create_timed_node(update_memory_node, "update_memory"))
-    workflow.add_node("tts", create_timed_node(tts_node, "tts"))
+    workflow.add_node("load_memory", cast(Any, create_timed_node(load_memory_node, "load_memory")))
+    workflow.add_node("vision", cast(Any, create_timed_node(vision_node, "vision")))
+    workflow.add_node("router", cast(Any, create_timed_node(router_node, "router")))
+    workflow.add_node("rag", cast(Any, create_timed_node(rag_node, "rag")))
+    workflow.add_node("socrates", cast(Any, create_timed_node(socrates_node, "socrates")))
+    workflow.add_node("quiz", cast(Any, create_timed_node(quiz_node, "quiz")))
+    workflow.add_node("reflector", cast(Any, create_timed_node(reflector_node, "reflector")))
+    workflow.add_node("update_memory", cast(Any, create_timed_node(update_memory_node, "update_memory")))
+    workflow.add_node("tts", cast(Any, create_timed_node(tts_node, "tts")))
 
     logger.debug("Nodes added: load_memory, vision, router, rag, socrates, quiz, reflector, update_memory, tts")
 
@@ -168,10 +170,10 @@ def build_tutor_graph() -> CompiledStateGraph:
 
 
 # Global graph instance
-_tutor_graph = None
+_tutor_graph: Any | None = None
 
 
-def get_tutor_graph() -> CompiledStateGraph:
+def get_tutor_graph() -> Any:
     """
     Get or create the global tutor graph instance.
 

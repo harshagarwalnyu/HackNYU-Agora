@@ -5,7 +5,7 @@ Handles audio streaming, STT, LangGraph processing, and TTS responses.
 
 import logging
 import base64
-from typing import Dict
+from typing import Dict, Any
 import uuid
 import asyncio
 
@@ -35,11 +35,11 @@ sio = socketio.AsyncServer(
 # Active sessions mapped by socket ID
 active_sessions: Dict[str, TutorState] = {}
 # Active tasks mapped by socket ID for interruption
-active_tasks: Dict[str, asyncio.Task] = {}
+active_tasks: Dict[str, asyncio.Task[None]] = {}
 
 
 @sio.event
-async def connect(sid, environ, auth):
+async def connect(sid: str, environ: Dict[str, Any], auth: Dict[str, Any]) -> bool:
     """Handle client connection."""
     logger.info("=" * 80)
     logger.info("SOCKET.IO CONNECTION ESTABLISHED")
@@ -70,7 +70,7 @@ async def connect(sid, environ, auth):
 
 
 @sio.event
-async def disconnect(sid):
+async def disconnect(sid: str) -> None:
     """Handle client disconnection."""
     logger.info("Client disconnected", extra={"sid": sid})
 
@@ -83,7 +83,7 @@ async def disconnect(sid):
 
 
 @sio.event
-async def interrupt(sid, data):
+async def interrupt(sid: str, data: Dict[str, Any]) -> None:
     """Handle interruption signal (stop generating/speaking)."""
     logger.info("Interruption signal received", extra={"sid": sid})
     
@@ -99,7 +99,7 @@ async def interrupt(sid, data):
 
 
 @sio.event
-async def init_session(sid, data):
+async def init_session(sid: str, data: Dict[str, Any]) -> None:
     """Initialize a new tutoring session."""
     try:
         logger.debug("Initializing session", extra={"sid": sid})
@@ -146,7 +146,7 @@ async def init_session(sid, data):
 
 
 @sio.event
-async def audio_input(sid, data):
+async def audio_input(sid: str, data: Dict[str, Any]) -> None:
     """Handle audio input message."""
     try:
         logger.debug("Processing audio_input message", extra={"sid": sid})
@@ -241,7 +241,7 @@ async def audio_input(sid, data):
 
 
 @sio.event
-async def text_input(sid, data):
+async def text_input(sid: str, data: Dict[str, Any]) -> None:
     """Handle text input message."""
     try:
         logger.debug("Processing text_input message", extra={"sid": sid})
@@ -304,7 +304,7 @@ async def text_input(sid, data):
 
 async def process_and_respond(
     sid: str, state: TutorState, user_text: str, audio_format: str | None
-):
+) -> None:
     """Process user input through LangGraph and send responses."""
     try:
         logger.debug(

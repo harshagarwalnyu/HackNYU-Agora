@@ -45,7 +45,14 @@ export function RecorderButton({
         mediaRecorder.onstop = () => {
           const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
           setIsRecording(false);
-          onAudioSubmit(blob);
+          
+          // Groq requires >0.01s of audio. 
+          // 1KB is a safe lower bound for a valid webm file with header and some audio.
+          if (blob.size > 1024) {
+            onAudioSubmit(blob);
+          } else {
+            console.warn('[RecorderButton] Audio segment too short, discarding.', blob.size);
+          }
         };
 
         mediaRecorderRef.current = mediaRecorder;

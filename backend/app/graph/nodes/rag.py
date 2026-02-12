@@ -92,24 +92,43 @@ async def rag_node(state: TutorState) -> TutorState:
 
         # Fallback: Web Search if results are poor
         top_score = search_results[0]["score"] if search_results else 0.0
-        web_results = []
         
         if top_score < 0.5:
-            logger.info(f"Low RAG score ({top_score:.2f}). Initiating Web Search...", extra={"query": query_text})
-            # TODO: Integrate real Tavily/SerpAPI here. 
-            # For now, we simulate a "Search Agent" that would fetch external info.
-            # In production, use: `tavily.search(query=query_text)`
-            web_results = [
-                {
-                    "text": f"[WEB SEARCH RESULT] Information about '{query_text}' is being retrieved from external sources. (Live search not enabled in this demo).",
-                    "score": 0.8,
-                    "metadata": {"source": "web_search", "url": "https://google.com"}
-                }
-            ]
+            logger.info(f"Low RAG score ({top_score:.2f}). Initiating Web Search via DuckDuckGo...", extra={"query": query_text})
             
-            # Combine results
-            for res in web_results:
-                search_results.append(res)
+            try:
+                from duckduckgo_search import DDGS
+                
+                web_results = []
+                with DDGS() as ddgs:
+                    # Search for top 3 results
+                    results = list(ddgs.text(query_text, max_results=3))
+                    
+                    for res in results:
+                        web_results.append({
+                            "text": f"[WEB SOURCE: {res['title']}] {res['body']}",
+                            "score": 0.9, # Assign high confidence to fresh web results
+                            "metadata": {"source": "web_search", "url": res["href"]}
+                        })
+                
+                if web_results:
+                    logger.info(f"Found {len(web_results)} web results")
+                    # Append web results to search results
+                    search_results.extend(web_results)
+                else:
+                    logger.warning("Web search returned no results")
+                    
+            except Exception as e:
+                logger.error(f"Web search failed: {e}", exc_info=True)
+                # Fallback mock if DDG fails
+                web_results = [
+                    {
+                        "text": f"[WEB SEARCH FAILED] Could not retrieve external information for '{query_text}'.",
+                        "score": 0.1,
+                        "metadata": {"source": "system_error", "url": "#"}
+                    }
+                ]
+                search_results.extend(web_results)
 
         logger.info(
             "RAG search completed",

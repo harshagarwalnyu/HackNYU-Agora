@@ -5,7 +5,7 @@ Parses PDFs, images, and other documents, chunks them, generates embeddings, and
 
 import logging
 from pathlib import Path
-from typing import Callable, List, Optional
+from typing import Callable, List, Optional, cast
 
 from app.services.llm_client import llm_client
 from app.services.qdrant_client import qdrant_service
@@ -44,7 +44,7 @@ async def process_document(
             },
         )
 
-        def update_status(progress: int, message: str):
+        def update_status(progress: int, message: str) -> None:
             """Update status via callback."""
             logger.debug(
                 "Progress update",

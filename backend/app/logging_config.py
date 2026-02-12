@@ -4,15 +4,27 @@ Sets up JSON-formatted logging with DEBUG level throughout.
 """
 
 import logging
+
 import sys
+
 from pathlib import Path
+
+from typing import Dict, Any
+
 from pythonjsonlogger import jsonlogger
 
 
+
+
+
 class CustomJsonFormatter(jsonlogger.JsonFormatter):
+
     """Custom JSON formatter with additional context."""
 
-    def add_fields(self, log_record, record, message_dict):
+
+
+    def add_fields(self, log_record: Dict[str, Any], record: logging.LogRecord, message_dict: Dict[str, Any]) -> None:
+
         super(CustomJsonFormatter, self).add_fields(log_record, record, message_dict)
         log_record["timestamp"] = self.formatTime(record, self.datefmt)
         log_record["level"] = record.levelname
@@ -41,7 +53,7 @@ def setup_logging(log_level: str = "DEBUG", log_file: str | None = None) -> None
     # Respect chosen log level instead of forcing DEBUG
     console_handler.setLevel(getattr(logging, log_level.upper(), logging.DEBUG))
 
-    json_formatter = CustomJsonFormatter(
+    json_formatter = CustomJsonFormatter(  # type: ignore
         "%(timestamp)s %(level)s %(logger)s %(module)s %(function)s %(line)d %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )

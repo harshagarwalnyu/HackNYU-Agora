@@ -5,7 +5,7 @@ Loads environment variables and provides validated configuration.
 
 import logging
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Any
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -79,7 +79,7 @@ class Settings(BaseSettings):
         logger.debug(f"Storage path validated: {v}")
         return v
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         logger.debug(
             "Settings initialized",

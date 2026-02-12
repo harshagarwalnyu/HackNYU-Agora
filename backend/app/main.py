@@ -5,6 +5,7 @@ Initializes services, routes, and WebSocket connections.
 
 import logging
 from contextlib import asynccontextmanager
+from typing import Any, AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -20,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """
     Application lifespan manager for startup and shutdown events.
     """
@@ -127,13 +128,13 @@ logger.debug("CORS middleware configured")
 
 
 @app.get("/health")
-async def health_check():
+async def health_check() -> JSONResponse:
     """
     Health check endpoint to verify service status.
     """
     logger.debug("Health check requested")
 
-    health_status = {
+    health_status: dict[str, Any] = {
         "status": "healthy",
         "app_name": settings.app_name,
         "version": settings.app_version,
@@ -168,23 +169,25 @@ async def health_check():
 
 
 @app.get("/")
-async def root():
+async def root() -> dict[str, str]:
     """Root endpoint."""
     logger.debug("Root endpoint accessed")
     return {"message": "Agora Backend API", "version": settings.app_version, "docs": "/docs"}
 
 
 @app.get("/api/progress")
-async def get_user_progress():
+async def get_user_progress() -> Any:
     """Get the user's knowledge graph/progress."""
     try:
         from pathlib import Path
         import json
-        
+        import aiofiles
+
         kg_path = Path("backend/storage/user_knowledge_graph.json")
         if kg_path.exists():
-            with open(kg_path, "r") as f:
-                data = json.load(f)
+            async with aiofiles.open(kg_path, mode="r") as f:
+                content = await f.read()
+                data = json.loads(content)
             return data
         else:
             return []

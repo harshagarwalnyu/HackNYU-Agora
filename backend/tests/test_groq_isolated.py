@@ -1,11 +1,14 @@
 import asyncio
 import os
+import pytest
 from groq import AsyncGroq
 from dotenv import load_dotenv
 
 load_dotenv()
 
-async def test_groq():
+@pytest.mark.asyncio
+@pytest.mark.skipif(not os.getenv("GROQ_API_KEY"), reason="GROQ_API_KEY not set")
+async def test_groq() -> None:
     api_key = os.getenv("GROQ_API_KEY")
     print(f"API Key present: {bool(api_key)}")
     if api_key:

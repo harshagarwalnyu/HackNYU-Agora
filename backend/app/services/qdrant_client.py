@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class QdrantService:
     """Service for interacting with Qdrant vector database."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize Qdrant service."""
         self.url = settings.qdrant_url
         self.api_key = settings.qdrant_api_key
@@ -43,7 +43,10 @@ class QdrantService:
         try:
             logger.debug("Connecting to Qdrant...", extra={"url": self.url})
 
-            self.client = QdrantClient(url=self.url, api_key=self.api_key, timeout=30)
+            if self.url == ":memory:":
+                self.client = QdrantClient(location=":memory:", timeout=30)
+            else:
+                self.client = QdrantClient(url=self.url, api_key=self.api_key, timeout=30)
 
             logger.info("Qdrant client connected successfully")
 

@@ -5,9 +5,10 @@ Handles interactions with Groq's high-performance API (Llama 3 / Mixtral).
 
 import logging
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast, Union
 
 from groq import AsyncGroq
+from groq.types.chat import ChatCompletionMessageParam
 from sentence_transformers import SentenceTransformer
 
 from app.config import settings
@@ -18,7 +19,7 @@ logger = logging.getLogger(__name__)
 class LLMClient:
     """Client for interacting with Groq LLM API and Local Embeddings."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize LLM client."""
         self.api_key = settings.groq_api_key
         self.model_name = settings.llm_model
@@ -83,14 +84,14 @@ class LLMClient:
             if not self.client:
                 raise RuntimeError("LLM client not initialized")
 
-            messages = []
+            messages: List[ChatCompletionMessageParam] = []
             if system_prompt:
                 messages.append({"role": "system", "content": system_prompt})
             messages.append({"role": "user", "content": prompt})
 
             response = await self.client.chat.completions.create(
                 model=self.model_name,
-                messages=messages,  # type: ignore
+                messages=messages,
                 temperature=temperature or self.temperature,
                 max_tokens=max_tokens or self.max_tokens,
             )
@@ -124,7 +125,7 @@ class LLMClient:
             # Clean up potential markdown blocks
             clean_text = response_text.replace("```json", "").replace("```", "").strip()
 
-            return json.loads(clean_text)
+            return cast(Dict[str, Any], json.loads(clean_text))
 
         except Exception:
             logger.error("JSON generation failed", exc_info=True)
@@ -138,7 +139,7 @@ class LLMClient:
 
             # SentenceTransformer handles this synchronously
             embedding = self.embedding_model.encode(text)
-            return embedding.tolist()
+            return cast(List[float], embedding.tolist())
 
         except Exception:
             logger.error("Embedding generation failed", exc_info=True)
@@ -188,7 +189,7 @@ class LLMClient:
 
             response = await self.client.chat.completions.create(
                 model="llama-3.2-90b-vision-preview",
-                messages=[  # type: ignore
+                messages=cast(List[ChatCompletionMessageParam], [
                     {
                         "role": "user",
                         "content": [
@@ -196,7 +197,7 @@ class LLMClient:
                             img_content,
                         ],
                     }
-                ],
+                ]),
                 temperature=0.5,
                 max_tokens=1024,
             )

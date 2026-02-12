@@ -36,7 +36,7 @@ class STTEngine(ABC):
 class GroqWhisperSTT(STTEngine):
     """Groq API / Whisper implementation."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize Groq Whisper STT."""
         self.api_key = settings.groq_api_key
         self.model = settings.stt_model

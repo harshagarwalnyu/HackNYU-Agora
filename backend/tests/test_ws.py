@@ -5,31 +5,33 @@ import socketio
 sio = socketio.AsyncClient(logger=True, engineio_logger=True)
 
 @sio.event
-async def connect():
+async def connect() -> None:
     print("Connected to server")
     
 @sio.event
-async def disconnect():
+async def disconnect() -> None:
     print("Disconnected from server")
 
+from typing import Dict, Any
+
 @sio.event
-async def session_initialized(data):
+async def session_initialized(data: Dict[str, Any]) -> None:
     print(f"Session initialized: {data}")
     # Send a text message
     await sio.emit('text_input', {'text': 'Explain quantum physics in simple terms.'})
 
 @sio.event
-async def transcript(data):
+async def transcript(data: Dict[str, Any]) -> None:
     print(f"Received transcript: {data}")
 
 @sio.event
-async def session_status(data):
+async def session_status(data: Dict[str, Any]) -> None:
     print(f"Session status: {data}")
     if data.get('status') == 'interrupted':
         print("SUCCESS: Interruption confirmed.")
         await sio.disconnect()
 
-async def main():
+async def main() -> None:
     try:
         await sio.connect('http://localhost:8000')
         

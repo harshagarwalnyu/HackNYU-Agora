@@ -29,7 +29,7 @@ client = TestClient(app)
 
 
 @pytest.mark.asyncio
-async def test_health_check():
+async def test_health_check() -> None:
     """Verify backend health endpoint."""
     response = client.get("/health")
     assert response.status_code == 200
@@ -40,7 +40,7 @@ async def test_health_check():
 
 
 @pytest.mark.asyncio
-async def test_materials_upload_flow():
+async def test_materials_upload_flow() -> None:
     """Verify file upload flow."""
     # Create dummy file
     files = {"file": ("test.txt", b"dummy content", "text/plain")}
@@ -56,7 +56,7 @@ async def test_materials_upload_flow():
 
 
 @pytest.mark.asyncio
-async def test_socket_io_connection():
+async def test_socket_io_connection() -> None:
     """Verify Socket.IO connection and session init."""
     response = client.get("/socket.io/")
     # Socket.IO protocol handshake might return 200 or 400 depending on transport params
@@ -65,7 +65,7 @@ async def test_socket_io_connection():
 
 
 @pytest.mark.asyncio
-async def test_llm_client_mock():
+async def test_llm_client_mock() -> None:
     """Verify LLM Client logic with mocks."""
     from app.services.llm_client import LLMClient
 

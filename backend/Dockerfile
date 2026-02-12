@@ -1,33 +1,47 @@
 # Backend Dockerfile
-FROM python:3.11-bookworm
+FROM python:3.11-slim-bookworm as builder
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-# System dependencies: ffmpeg for pydub, espeak-ng for pyttsx3 fallback
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
+WORKDIR /app
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
-    ffmpeg \
     curl \
     && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /app
 
 # Install Python dependencies
 COPY backend/requirements.txt /app/requirements.txt
 
-# Stage 1: Core application dependencies
-# We install pytorch cpu version first to keep image size small
+# Install dependencies into a virtual environment
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Install pytorch cpu version
 RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu --prefer-binary \
     "torch==2.1.2" "torchvision==0.16.2"
 
-# Install remaining dependencies from requirements.txt
-# Upgrade pip first
-RUN pip install --no-cache-dir --upgrade pip
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r /app/requirements.txt
 
-# Install requirements
-RUN pip install --no-cache-dir -r /app/requirements.txt
+# Final Stage
+FROM python:3.11-slim-bookworm
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH="/opt/venv/bin:$PATH"
+
+# Runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy virtual env from builder
+COPY --from=builder /opt/venv /opt/venv
 
 # Copy backend source
 COPY backend /app

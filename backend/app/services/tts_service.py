@@ -37,7 +37,7 @@ class TTSEngine(ABC):
 class EdgeTTS(TTSEngine):
     """Microsoft Edge TTS implementation."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize Edge TTS."""
         self.voice = settings.tts_voice
         logger.debug("EdgeTTS instantiated", extra={"voice": self.voice})

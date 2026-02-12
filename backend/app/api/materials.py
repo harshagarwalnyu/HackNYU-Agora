@@ -29,16 +29,16 @@ async def upload_materials(
     user_id: str = Form(...),
     course_id: str = Form(default="general"),
     description: str = Form(default=""),
-):
+) -> JSONResponse:
     """
     Upload study materials for processing.
-
+    
     Args:
         file: Uploaded file (PDF, PPT, image, etc.)
         user_id: User identifier
         course_id: Course/topic identifier
         description: Optional description
-
+        
     Returns:
         Upload status with job_id
     """
@@ -121,7 +121,7 @@ async def upload_materials(
         # Process document asynchronously (in background)
         import asyncio
 
-        async def process_in_background():
+        async def process_in_background() -> None:
             try:
                 logger.debug("Starting background processing", extra={"job_id": job_id})
 
@@ -185,13 +185,13 @@ async def upload_materials(
 
 
 @router.get("/status/{job_id}")
-async def get_upload_status(job_id: str):
+async def get_upload_status(job_id: str) -> JSONResponse:
     """
     Get the status of an upload job.
-
+    
     Args:
         job_id: Job identifier
-
+        
     Returns:
         Job status information
     """
@@ -228,14 +228,14 @@ async def get_upload_status(job_id: str):
 
 
 @router.get("/list")
-async def list_materials(user_id: str, course_id: Optional[str] = None):
+async def list_materials(user_id: str, course_id: Optional[str] = None) -> JSONResponse:
     """
     List uploaded materials for a user.
-
+    
     Args:
         user_id: User identifier
         course_id: Optional course filter
-
+        
     Returns:
         List of materials
     """
