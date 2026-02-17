@@ -15,6 +15,7 @@ interface TranscriptPanelProps {
   onScroll?: (position: number) => void;
 }
 
+// Memoized to prevent unnecessary re-renders when parent updates but props are stable.
 export const TranscriptPanel = React.memo(function TranscriptPanel({
   messages,
   isLoading = false,
