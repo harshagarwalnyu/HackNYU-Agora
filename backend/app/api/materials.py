@@ -23,6 +23,22 @@ router = APIRouter()
 upload_status = {}
 
 
+def cleanup_upload_status() -> None:
+    """
+    Limit the size of the upload status dictionary to prevent memory exhaustion.
+    Removes the oldest entries if the limit is exceeded.
+    """
+    try:
+        max_size = settings.upload_status_history_size
+        while len(upload_status) >= max_size:
+            # Remove oldest item (Python 3.7+ dicts preserve insertion order)
+            oldest_job_id = next(iter(upload_status))
+            upload_status.pop(oldest_job_id)
+            logger.debug("Removed old upload status", extra={"job_id": oldest_job_id})
+    except Exception as e:
+        logger.error("Error cleaning up upload status", extra={"error": str(e)}, exc_info=True)
+
+
 @router.post("/upload")
 async def upload_materials(
     file: UploadFile = File(...),
@@ -125,6 +141,7 @@ async def upload_materials(
         )
 
         # Update status
+        cleanup_upload_status()
         upload_status[job_id] = {
             "job_id": job_id,
             "status": "processing",
