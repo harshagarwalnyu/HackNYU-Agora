@@ -12,6 +12,7 @@ import asyncio
 import socketio
 from fastapi import APIRouter
 
+from app.config import settings
 from app.graph.state import create_initial_state, TutorState
 from app.graph.builder import process_user_input
 from app.services.stt_service import get_global_stt
@@ -25,7 +26,7 @@ router = APIRouter()
 # Client must use socket.io-client 4.x or 5.x compatible version
 sio = socketio.AsyncServer(
     async_mode="asgi",
-    cors_allowed_origins="*",
+    cors_allowed_origins=settings.backend_cors_origins,
     logger=True,
     engineio_logger=True,
     ping_timeout=60,

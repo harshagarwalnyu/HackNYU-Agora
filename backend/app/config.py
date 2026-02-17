@@ -5,7 +5,7 @@ Loads environment variables and provides validated configuration.
 
 import logging
 from pathlib import Path
-from typing import Literal, Any
+from typing import Literal, Any, List
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
     reload: bool = True
-    backend_cors_origins: list[str] = ["http://localhost:3000", "http://localhost:8000"]
+    backend_cors_origins: List[str] = ["http://localhost:3000", "http://localhost:8000"]
 
     # API Keys
     groq_api_key: str = Field(alias="GROQ_API_KEY")
@@ -71,6 +71,16 @@ class Settings(BaseSettings):
     enable_visual_actions: bool = True
     enable_frustration_monitor: bool = True
     enable_self_explanation: bool = False  # Advanced feature
+
+    @field_validator("backend_cors_origins", mode="before")
+    @classmethod
+    def assemble_cors_origins(cls, v: str | list[str]) -> list[str] | str:
+        """Parse CORS origins from a comma-separated string."""
+        if isinstance(v, str) and not v.startswith("["):
+            return [i.strip() for i in v.split(",")]
+        elif isinstance(v, (list, str)):
+            return v
+        raise ValueError(v)
 
     @field_validator("storage_path")
     @classmethod
