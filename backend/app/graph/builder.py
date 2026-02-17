@@ -5,10 +5,9 @@ Connects all nodes with conditional edges.
 
 import logging
 import time
-from typing import cast, Any
+from typing import Any, Awaitable, Callable, cast
 
 from langgraph.graph import StateGraph, END
-from langgraph.graph.state import CompiledStateGraph
 
 from app.graph.state import RoutingDecision, TutorState, add_message
 from app.graph.nodes.router import router_node
@@ -22,8 +21,6 @@ from app.graph.nodes.reflector import reflector_node
 
 logger = logging.getLogger(__name__)
 
-
-from typing import cast, Any, Callable, Awaitable
 
 # Node wrapper to add timing and message tracking
 def create_timed_node(node_func: Callable[[TutorState], Awaitable[TutorState]], node_name: str) -> Callable[[TutorState], Awaitable[TutorState]]:
