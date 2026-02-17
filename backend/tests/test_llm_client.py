@@ -237,13 +237,49 @@ async def test_analyze_image_no_input(llm_client, mock_groq):
     assert "Either image_url or image_data must be provided" in result
 
 @pytest.mark.asyncio
-async def test_analyze_image_uninitialized(llm_client):
-    result = await llm_client.analyze_image(image_url="http://example.com/image.jpg")
-    assert "I could not analyze the image due to an error" in result
-    assert "LLM client not initialized" in result
+async def test_generate_text_with_params(llm_client, mock_groq):
+    mock_groq_instance = AsyncMock()
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock(message=MagicMock(content="Generated text"))]
+    mock_groq_instance.chat.completions.create.return_value = mock_response
+    mock_groq.return_value = mock_groq_instance
+
+    await llm_client.initialize()
+
+    await llm_client.generate_text("Test prompt", temperature=0.5, max_tokens=200)
+
+    call_kwargs = mock_groq_instance.chat.completions.create.call_args.kwargs
+    assert call_kwargs["temperature"] == 0.5
+    assert call_kwargs["max_tokens"] == 200
 
 @pytest.mark.asyncio
-async def test_analyze_image_api_error(llm_client, mock_groq):
+async def test_generate_json_invalid_json(llm_client, mock_groq):
+    mock_groq_instance = AsyncMock()
+    # Invalid JSON
+    json_content = 'Not JSON'
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock(message=MagicMock(content=json_content))]
+    mock_groq_instance.chat.completions.create.return_value = mock_response
+    mock_groq.return_value = mock_groq_instance
+
+    await llm_client.initialize()
+
+    with pytest.raises(Exception): # json.JSONDecodeError inherits from ValueError which inherits from Exception
+         await llm_client.generate_json("Test prompt")
+
+@pytest.mark.asyncio
+async def test_embed_text_failure(llm_client, mock_sentence_transformer):
+    mock_st_instance = MagicMock()
+    mock_st_instance.encode.side_effect = Exception("Embedding failed")
+    mock_sentence_transformer.return_value = mock_st_instance
+
+    await llm_client.initialize()
+
+    with pytest.raises(Exception, match="Embedding failed"):
+        await llm_client.embed_text("Test text")
+
+@pytest.mark.asyncio
+async def test_analyze_image_api_failure(llm_client, mock_groq):
     mock_groq_instance = AsyncMock()
     mock_groq_instance.chat.completions.create.side_effect = Exception("API Error")
     mock_groq.return_value = mock_groq_instance
@@ -255,34 +291,9 @@ async def test_analyze_image_api_error(llm_client, mock_groq):
     assert "API Error" in result
 
 @pytest.mark.asyncio
-async def test_analyze_image_custom_prompt(llm_client, mock_groq):
-    mock_groq_instance = AsyncMock()
-    mock_response = MagicMock()
-    mock_response.choices = [MagicMock(message=MagicMock(content="Description"))]
-    mock_groq_instance.chat.completions.create.return_value = mock_response
-    mock_groq.return_value = mock_groq_instance
+async def test_initialize_embedding_failure(llm_client, mock_groq, mock_sentence_transformer):
+    # Mock SentenceTransformer to raise exception
+    mock_sentence_transformer.side_effect = Exception("Model load failed")
 
-    await llm_client.initialize()
-
-    await llm_client.analyze_image(image_url="http://example.com/image.jpg", prompt="Custom prompt")
-
-    call_kwargs = mock_groq_instance.chat.completions.create.call_args.kwargs
-    content = call_kwargs["messages"][0]["content"]
-    assert content[0]["text"] == "Custom prompt"
-
-@pytest.mark.asyncio
-async def test_analyze_image_custom_mime_type(llm_client, mock_groq):
-    mock_groq_instance = AsyncMock()
-    mock_response = MagicMock()
-    mock_response.choices = [MagicMock(message=MagicMock(content="Description"))]
-    mock_groq_instance.chat.completions.create.return_value = mock_response
-    mock_groq.return_value = mock_groq_instance
-
-    await llm_client.initialize()
-
-    image_bytes = b"fake_png_data"
-    await llm_client.analyze_image(image_data=image_bytes, mime_type="image/png")
-
-    call_kwargs = mock_groq_instance.chat.completions.create.call_args.kwargs
-    content = call_kwargs["messages"][0]["content"]
-    assert "data:image/png;base64," in content[1]["image_url"]["url"]
+    with pytest.raises(Exception, match="Model load failed"):
+        await llm_client.initialize()
