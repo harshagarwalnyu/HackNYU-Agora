@@ -1,51 +1,3 @@
-import sys
-from unittest.mock import MagicMock, AsyncMock, patch
-import pytest
-
-# Mock external dependencies that might be missing or hard to install
-# We mock them BEFORE importing the app modules
-
-# Mock qdrant_client
-mock_qdrant = MagicMock()
-sys.modules["qdrant_client"] = mock_qdrant
-sys.modules["qdrant_client.http"] = MagicMock()
-sys.modules["qdrant_client.http.models"] = MagicMock()
-sys.modules["qdrant_client.http.exceptions"] = MagicMock()
-
-# Mock groq
-mock_groq = MagicMock()
-sys.modules["groq"] = mock_groq
-sys.modules["groq.types"] = MagicMock()
-sys.modules["groq.types.chat"] = MagicMock()
-
-# Mock sentence_transformers
-mock_sentence_transformers = MagicMock()
-sys.modules["sentence_transformers"] = mock_sentence_transformers
-
-# Mock edge_tts
-mock_edge_tts = MagicMock()
-sys.modules["edge_tts"] = mock_edge_tts
-
-# Mock langgraph
-mock_langgraph = MagicMock()
-sys.modules["langgraph"] = mock_langgraph
-sys.modules["langgraph.graph"] = MagicMock()
-sys.modules["langgraph.graph.state"] = MagicMock()
-
-# Mock specific imports used in services
-# We need to make sure that when 'from qdrant_client import QdrantClient' runs, it works
-mock_qdrant.QdrantClient = MagicMock()
-mock_groq.AsyncGroq = MagicMock()
-mock_sentence_transformers.SentenceTransformer = MagicMock()
-
-# Mock service instances and initialization before app import
-with patch("app.services.qdrant_client.QdrantService.initialize", AsyncMock()), \
-     patch("app.services.llm_client.LLMClient.initialize", AsyncMock()), \
-     patch("app.services.stt_service.GroqWhisperSTT.initialize", AsyncMock()):
-    # We must also mock edge_tts if it is imported at top level in tts_service
-    # But since we mocked sys.modules['edge_tts'], the import should succeed.
-
-    from fastapi.testclient import TestClient
 import pytest
 from unittest.mock import AsyncMock, patch
 from fastapi.testclient import TestClient
@@ -109,16 +61,6 @@ def test_upload_materials_no_filename():
     data = {"user_id": "user123"}
 
     response = client.post("/api/materials/upload", files=files, data=data)
-    # FastAPI/Starlette might return 422 Unprocessable Entity for invalid file parts
-    # or our code returns 400.
-    assert response.status_code in [400, 422]
-    if response.status_code == 400:
-        assert response.json()["detail"] == "No filename provided"
-
-def test_upload_materials_file_too_large():
-    """Test upload with file exceeding max size."""
-    # We use app.config.settings directly because app.api.materials imports settings from there
-    with patch.object(settings, 'upload_max_size', new=5):
     assert response.status_code == 400
     assert response.json()["detail"] == "No filename provided"
 
