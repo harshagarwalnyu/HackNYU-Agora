@@ -92,16 +92,6 @@ export function useWebSocket() {
 
         // Setup connect handler BEFORE connecting
         wsClient.on('connect', onConnect);
-
-        await wsClient.connect({
-          url: wsUrl,
-          userId,
-          sessionId,
-        });
-
-        if (!isMounted) return;
-
-        // Register the stable callbacks
         wsClient.on('session_initialized', onSessionInitialized);
         wsClient.on('transcript', onTranscript);
         wsClient.on('audio_response', onAudioResponse);
@@ -109,6 +99,12 @@ export function useWebSocket() {
         wsClient.on('session_status', onSessionStatus);
         wsClient.on('connection_status', onConnectionStatus);
         wsClient.on('error', onError);
+
+        await wsClient.connect({
+          url: wsUrl,
+          userId,
+          sessionId,
+        });
 
       } catch (err) {
         if (!isMounted) return;
