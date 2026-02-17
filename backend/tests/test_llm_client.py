@@ -90,6 +90,9 @@ async def test_health_check_success(llm_client, mock_groq):
     assert await llm_client.health_check() is True
 
     mock_groq_instance.chat.completions.create.assert_called_once()
+    call_kwargs = mock_groq_instance.chat.completions.create.call_args.kwargs
+    assert call_kwargs["messages"] == [{"role": "user", "content": "ping"}]
+    assert call_kwargs["max_tokens"] == 1
 
 @pytest.mark.asyncio
 async def test_health_check_failure(llm_client, mock_groq):
@@ -122,6 +125,9 @@ async def test_generate_text_success(llm_client, mock_groq):
     call_kwargs = mock_groq_instance.chat.completions.create.call_args.kwargs
     assert call_kwargs["messages"] == [{"role": "user", "content": "Test prompt"}]
     assert call_kwargs["model"] == "test_model"
+    # Ensure defaults from settings are used
+    assert call_kwargs["temperature"] == 0.7
+    assert call_kwargs["max_tokens"] == 100
 
 @pytest.mark.asyncio
 async def test_generate_text_uninitialized(llm_client):
@@ -288,3 +294,19 @@ async def test_generate_text_empty_response(llm_client, mock_groq):
 
     result = await llm_client.generate_text("Test prompt")
     assert result == ""
+
+@pytest.mark.asyncio
+async def test_generate_text_no_choices(llm_client, mock_groq):
+    mock_groq_instance = AsyncMock()
+    mock_response = MagicMock()
+    # Simulate empty choices list
+    mock_response.choices = []
+    mock_groq_instance.chat.completions.create.return_value = mock_response
+    mock_groq.return_value = mock_groq_instance
+
+    await llm_client.initialize()
+
+    # Should raise IndexError because code accesses choices[0]
+    # And it's caught and re-raised by try-except block
+    with pytest.raises(IndexError):
+        await llm_client.generate_text("Test prompt")
