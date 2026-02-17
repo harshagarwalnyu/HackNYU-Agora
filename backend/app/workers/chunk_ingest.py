@@ -4,11 +4,14 @@ Parses PDFs, images, and other documents, chunks them, generates embeddings, and
 """
 
 import logging
+import asyncio
 from pathlib import Path
-from typing import Callable, List, Optional, cast
+from typing import Callable, List, Optional
 
+import aiofiles
 from app.services.llm_client import llm_client
 from app.services.qdrant_client import qdrant_service
+from app.utils.text_processing import chunk_text
 
 logger = logging.getLogger(__name__)
 
@@ -76,9 +79,8 @@ async def process_document(
 
         # Generate embeddings and prepare for Qdrant
         logger.debug("Generating embeddings for all chunks...")
-        chunk_data = []
 
-        for idx, chunk_content in enumerate(chunks):
+        async def process_chunk(idx, chunk_content):
             logger.debug(
                 f"Embedding chunk {idx + 1}/{len(chunks)}",
                 extra={"chunk_index": idx, "chunk_length": len(chunk_content)},
@@ -88,26 +90,26 @@ async def process_document(
             embedding = await llm_client.embed_text(chunk_content)
 
             # Create chunk data - use UUID for Qdrant point ID
-            import uuid
-
             chunk_id = str(uuid.uuid4())
-            chunk_data.append(
-                {
-                    "id": chunk_id,
-                    "text": chunk_content,
-                    "embedding": embedding,
-                    "metadata": {
-                        "source_file": Path(file_path).name,
-                        "chunk_index": idx,
-                        "job_id": job_id,
-                    },
-                }
-            )
 
             logger.debug(
                 f"Chunk {idx + 1} embedded",
                 extra={"chunk_id": chunk_id, "embedding_dim": len(embedding)},
             )
+
+            return {
+                "id": chunk_id,
+                "text": chunk_content,
+                "embedding": embedding,
+                "metadata": {
+                    "source_file": Path(file_path).name,
+                    "chunk_index": idx,
+                    "job_id": job_id,
+                },
+            }
+
+        # Process all chunks in parallel
+        chunk_data = await asyncio.gather(*(process_chunk(idx, content) for idx, content in enumerate(chunks)))
 
         logger.info("All embeddings generated", extra={"chunks_count": len(chunk_data)})
 
@@ -169,7 +171,8 @@ async def parse_with_docling(file_path: str) -> str:
 
         # Convert document
         logger.debug("Converting document...")
-        result = converter.convert(file_path)
+        loop = asyncio.get_running_loop()
+        result = await loop.run_in_executor(None, converter.convert, file_path)
 
         logger.debug("Document converted", extra={"has_result": result is not None})
 
@@ -223,8 +226,8 @@ async def parse_fallback(file_path: str) -> str:
         if suffix in [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"]:
             logger.debug("Parsing image with Gemini vision...")
 
-            with open(file_path, "rb") as f:
-                image_data = f.read()
+            async with aiofiles.open(file_path, "rb") as f:
+                image_data = await f.read()
 
             prompt = """Extract all text and content from this image.
 If it contains:
@@ -247,8 +250,8 @@ Provide a comprehensive markdown representation of everything in the image."""
         elif suffix in [".txt", ".md", ".markdown"]:
             logger.debug("Reading text file...")
 
-            with open(file_path, "r", encoding="utf-8") as f:
-                content = f.read()
+            async with aiofiles.open(file_path, "r", encoding="utf-8") as f:
+                content = await f.read()
 
             logger.info("Text file read", extra={"content_length": len(content)})
 
@@ -314,14 +317,14 @@ def chunk_text(text: str, chunk_size: int = 512, overlap: int = 50) -> List[str]
     Returns:
         List of text chunks
     """
+    if not text or text.strip() == "":
+        logger.warning("Empty text, returning empty list")
+        return []
+
     logger.debug(
         "Chunking text",
         extra={"text_length": len(text), "chunk_size": chunk_size, "overlap": overlap},
     )
-
-    if not text or text.strip() == "":
-        logger.warning("Empty text, returning empty list")
-        return []
 
     chunks = []
     start = 0

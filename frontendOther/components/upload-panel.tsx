@@ -183,12 +183,22 @@ export function UploadPanel({
       </div>
 
       <div
+        role="button"
+        tabIndex={0}
+        aria-label="Upload file drop zone"
+        onKeyDown={(e) => {
+          if (!isUploading && (e.key === 'Enter' || e.key === ' ')) {
+            e.preventDefault();
+            fileInputRef.current?.click();
+          }
+        }}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         onClick={() => !isUploading && fileInputRef.current?.click()}
         className={`flex-shrink-0 mx-4 mt-4 rounded-lg border-2 border-dashed transition-all cursor-pointer
           flex flex-col items-center justify-center p-8
+          focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none
           ${
             isDragging
               ? 'border-zinc-500 bg-zinc-900'

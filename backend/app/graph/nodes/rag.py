@@ -3,13 +3,36 @@ RAG Node - Retrieves relevant context from student notes.
 Uses embeddings and Qdrant vector search.
 """
 
+import asyncio
 import logging
+import asyncio
 
 from app.graph.state import RAGContext, RoutingDecision, TutorState
 from app.services.llm_client import llm_client
 from app.services.qdrant_client import qdrant_service
 
 logger = logging.getLogger(__name__)
+
+
+def _perform_web_search(query_text: str) -> list[dict]:
+    """
+    Perform synchronous web search using DuckDuckGo.
+    This function is intended to be run in a separate thread.
+    """
+    from duckduckgo_search import DDGS
+
+    web_results = []
+    with DDGS() as ddgs:
+        # Search for top 3 results
+        results = list(ddgs.text(query_text, max_results=3))
+
+        for res in results:
+            web_results.append({
+                "text": f"[WEB SOURCE: {res['title']}] {res['body']}",
+                "score": 0.9, # Assign high confidence to fresh web results
+                "metadata": {"source": "web_search", "url": res["href"]}
+            })
+    return web_results
 
 
 async def rag_node(state: TutorState) -> TutorState:
@@ -94,22 +117,14 @@ async def rag_node(state: TutorState) -> TutorState:
         top_score = search_results[0]["score"] if search_results else 0.0
         
         if top_score < 0.5:
-            logger.info(f"Low RAG score ({top_score:.2f}). Initiating Web Search via DuckDuckGo...", extra={"query": query_text})
-            
+            logger.info(
+                f"Low RAG score ({top_score:.2f}). Initiating Web Search via DuckDuckGo...",
+                extra={"query": query_text},
+            )
+
             try:
-                from duckduckgo_search import DDGS
-                
-                web_results = []
-                with DDGS() as ddgs:
-                    # Search for top 3 results
-                    results = list(ddgs.text(query_text, max_results=3))
-                    
-                    for res in results:
-                        web_results.append({
-                            "text": f"[WEB SOURCE: {res['title']}] {res['body']}",
-                            "score": 0.9, # Assign high confidence to fresh web results
-                            "metadata": {"source": "web_search", "url": res["href"]}
-                        })
+                # Run the blocking search in a separate thread
+                web_results = await asyncio.to_thread(_perform_web_search, query_text)
                 
                 if web_results:
                     logger.info(f"Found {len(web_results)} web results")
@@ -119,8 +134,8 @@ async def rag_node(state: TutorState) -> TutorState:
                     logger.warning("Web search returned no results")
                     
             except Exception as e:
-                logger.error(f"Web search failed: {e}", exc_info=True)
-                # Fallback mock if DDG fails
+                logger.error(f"Async web search execution failed: {e}", exc_info=True)
+                # Fallback mock if DDG execution fails completely
                 web_results = [
                     {
                         "text": f"[WEB SEARCH FAILED] Could not retrieve external information for '{query_text}'.",
