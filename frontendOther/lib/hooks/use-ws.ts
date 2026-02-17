@@ -136,9 +136,7 @@ export function useWebSocket() {
     };
     // We only want this effect to run when the session IDs change, not when
     // state setters from Zustand change.
-  }, [userId, sessionId, currentTopic,
-    onSessionInitialized, onTranscript, onAudioResponse, onVisual,
-    onSessionStatus, onConnectionStatus, onError, onConnect]);
+  }, [userId, sessionId]);
 
 
   const interrupt = useCallback(() => {
