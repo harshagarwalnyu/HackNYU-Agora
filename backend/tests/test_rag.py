@@ -52,15 +52,11 @@ async def test_rag_node_low_score_fallback():
     mock_qdrant_service = sys.modules["app.services.qdrant_client"].qdrant_service
     mock_qdrant_service.search_notes = AsyncMock(return_value=mock_search_results)
 
-    # patch DDGS
-    with patch("duckduckgo_search.DDGS") as mock_ddgs_cls:
+    # patch search_duckduckgo
+    with patch("app.graph.nodes.rag.search_duckduckgo", new_callable=AsyncMock) as mock_search:
 
-        # Mock DDGS context manager and text search
-        mock_ddgs_instance = MagicMock()
-        mock_ddgs_cls.return_value.__enter__.return_value = mock_ddgs_instance
-
-        # Mock the text() method to return a list of results
-        mock_ddgs_instance.text.return_value = [
+        # Mock to return a list of results
+        mock_search.return_value = [
             {"title": "Python", "body": "Python is a language", "href": "http://python.org"}
         ]
 

@@ -10,29 +10,9 @@ from app.config import settings
 from app.graph.state import RAGContext, RoutingDecision, TutorState
 from app.services.llm_client import llm_client
 from app.services.qdrant_client import qdrant_service
+from app.utils.web_search import search_duckduckgo
 
 logger = logging.getLogger(__name__)
-
-
-def _perform_web_search(query_text: str) -> list[dict]:
-    """
-    Perform synchronous web search using DuckDuckGo.
-    This function is intended to be run in a separate thread.
-    """
-    from duckduckgo_search import DDGS
-
-    web_results = []
-    with DDGS() as ddgs:
-        # Search for top 3 results
-        results = list(ddgs.text(query_text, max_results=3))
-
-        for res in results:
-            web_results.append({
-                "text": f"[WEB SOURCE: {res['title']}] {res['body']}",
-                "score": 0.9, # Assign high confidence to fresh web results
-                "metadata": {"source": "web_search", "url": res["href"]}
-            })
-    return web_results
 
 
 async def rag_node(state: TutorState) -> TutorState:
@@ -114,9 +94,17 @@ async def rag_node(state: TutorState) -> TutorState:
             )
 
             try:
-                # Run the blocking search in a separate thread
-                web_results = await asyncio.to_thread(_perform_web_search, query_text)
+                # Perform async web search
+                raw_results = await search_duckduckgo(query_text)
                 
+                web_results = []
+                for res in raw_results:
+                    web_results.append({
+                        "text": f"[WEB SOURCE: {res['title']}] {res['body']}",
+                        "score": 0.9, # Assign high confidence to fresh web results
+                        "metadata": {"source": "web_search", "url": res["href"]}
+                    })
+
                 if web_results:
                     logger.info(f"Found {len(web_results)} web results")
                     # Append web results to search results
@@ -126,7 +114,7 @@ async def rag_node(state: TutorState) -> TutorState:
                     
             except Exception as e:
                 logger.error(f"Async web search execution failed: {e}", exc_info=True)
-                # Fallback mock if DDG execution fails completely
+                # Fallback mock if web search fails completely
                 web_results = [
                     {
                         "text": f"[WEB SEARCH FAILED] Could not retrieve external information for '{query_text}'.",
