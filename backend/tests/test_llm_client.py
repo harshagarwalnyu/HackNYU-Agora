@@ -235,3 +235,56 @@ async def test_analyze_image_no_input(llm_client, mock_groq):
     # It catches ValueError and returns error message
     assert "I could not analyze the image due to an error" in result
     assert "Either image_url or image_data must be provided" in result
+
+@pytest.mark.asyncio
+async def test_generate_text_with_all_options(llm_client, mock_groq):
+    mock_groq_instance = AsyncMock()
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock(message=MagicMock(content="Generated text"))]
+    mock_groq_instance.chat.completions.create.return_value = mock_response
+    mock_groq.return_value = mock_groq_instance
+
+    await llm_client.initialize()
+
+    result = await llm_client.generate_text(
+        prompt="Test prompt",
+        system_prompt="Test system",
+        temperature=0.5,
+        max_tokens=50
+    )
+    assert result == "Generated text"
+
+    mock_groq_instance.chat.completions.create.assert_called_once()
+    call_kwargs = mock_groq_instance.chat.completions.create.call_args.kwargs
+    assert call_kwargs["messages"] == [
+        {"role": "system", "content": "Test system"},
+        {"role": "user", "content": "Test prompt"}
+    ]
+    assert call_kwargs["model"] == "test_model"
+    assert call_kwargs["temperature"] == 0.5
+    assert call_kwargs["max_tokens"] == 50
+
+@pytest.mark.asyncio
+async def test_generate_text_api_failure(llm_client, mock_groq):
+    mock_groq_instance = AsyncMock()
+    mock_groq_instance.chat.completions.create.side_effect = Exception("API Error")
+    mock_groq.return_value = mock_groq_instance
+
+    await llm_client.initialize()
+
+    with pytest.raises(Exception, match="API Error"):
+        await llm_client.generate_text("Test prompt")
+
+@pytest.mark.asyncio
+async def test_generate_text_empty_response(llm_client, mock_groq):
+    mock_groq_instance = AsyncMock()
+    mock_response = MagicMock()
+    # Mock content as None to simulate empty response if that happens
+    mock_response.choices = [MagicMock(message=MagicMock(content=None))]
+    mock_groq_instance.chat.completions.create.return_value = mock_response
+    mock_groq.return_value = mock_groq_instance
+
+    await llm_client.initialize()
+
+    result = await llm_client.generate_text("Test prompt")
+    assert result == ""
