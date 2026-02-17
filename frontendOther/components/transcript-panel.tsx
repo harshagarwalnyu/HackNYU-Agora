@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 
 export interface Message {
   id: string;
@@ -15,7 +15,7 @@ interface TranscriptPanelProps {
   onScroll?: (position: number) => void;
 }
 
-export function TranscriptPanel({
+export const TranscriptPanel = React.memo(function TranscriptPanel({
   messages,
   isLoading = false,
   onScroll,
@@ -109,4 +109,4 @@ export function TranscriptPanel({
       </div>
     </div>
   );
-}
+});
