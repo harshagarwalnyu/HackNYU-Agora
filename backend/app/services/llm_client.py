@@ -6,7 +6,7 @@ Handles interactions with Groq's high-performance API (Llama 3 / Mixtral).
 import logging
 import json
 import asyncio
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, List, Optional, cast, Union
 
 from groq import AsyncGroq
 from groq.types.chat import ChatCompletionMessageParam
@@ -138,8 +138,9 @@ class LLMClient:
             if not self.embedding_model:
                 raise RuntimeError("Embedding model not initialized")
 
-            # Run in thread to avoid blocking the event loop
-            embedding = await asyncio.to_thread(self.embedding_model.encode, text)
+            # Run on a separate thread to prevent blocking the event loop
+            loop = asyncio.get_running_loop()
+            embedding = await loop.run_in_executor(None, self.embedding_model.encode, text)
             return cast(List[float], embedding.tolist())
 
         except Exception:
