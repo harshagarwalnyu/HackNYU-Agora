@@ -2,44 +2,81 @@ import sys
 from unittest.mock import MagicMock, patch
 import os
 
-# Mock dependencies that might be missing or heavy
-sys.modules["sentence_transformers"] = MagicMock()
-sys.modules["transformers"] = MagicMock()
-sys.modules["torch"] = MagicMock()
-sys.modules["torchvision"] = MagicMock()
-# sys.modules["numpy"] = MagicMock()  # numpy is installed
+# -----------------------------------------------------------------------------
+# 1. Mock heavy/missing dependencies in sys.modules BEFORE importing app modules
+# -----------------------------------------------------------------------------
+
+def mock_module(name):
+    if name in sys.modules:
+        return sys.modules[name]
+    mock = MagicMock()
+    sys.modules[name] = mock
+    return mock
+
+# Mock external services and libraries
+mock_groq = mock_module("groq")
+mock_groq.AsyncGroq = MagicMock()
+
+mock_groq_types = mock_module("groq.types")
+mock_groq_chat = mock_module("groq.types.chat")
+
+# Sentence Transformers & Torch
+mock_st = mock_module("sentence_transformers")
+mock_st.SentenceTransformer = MagicMock()
+mock_module("torch")
+mock_module("torchvision")
+mock_module("numpy")
+
+# Docling
+mock_docling = mock_module("docling")
+mock_docling_converter = mock_module("docling.document_converter")
+
+# Qdrant
+mock_qdrant = mock_module("qdrant_client")
+mock_qdrant.AsyncQdrantClient = MagicMock()
+mock_qdrant_http = mock_module("qdrant_client.http")
+mock_qdrant_models = mock_module("qdrant_client.http.models")
+mock_qdrant_exceptions = mock_module("qdrant_client.http.exceptions")
+mock_qdrant_exceptions.UnexpectedResponse = Exception
+
+# TTS / STT / Other
+mock_module("edge_tts")
+mock_module("google.generativeai")
+mock_module("langgraph")
+mock_module("langchain")
+mock_module("langchain_google_genai")
+mock_module("ddgs")
+mock_module("deepgram")
+mock_module("openai")
+mock_module("faster_whisper")
+mock_module("elevenlabs")
+mock_module("websockets")
+
+# Mock app.api.ws to avoid loading it and its dependencies
+mock_ws = mock_module("app.api.ws")
+mock_ws.sio = MagicMock()
+
 
 # Set required environment variables
 os.environ["GROQ_API_KEY"] = "mock_key"
 
 # Force import of modules so patch can find them
-import app.services.qdrant_client
-import app.services.llm_client
-import app.services.stt_service
-import app.services.tts_service
+# We need to explicitly import submodules that we want to patch
+try:
+    import app.services.qdrant_client
+    import app.services.llm_client
+    import app.services.stt_service
+    import app.services.tts_service
+except ImportError as e:
+    print(f"Failed to import services: {e}")
+    # We continue, assuming that if import failed it's because of some other dependency
+    # but since we mocked most things, it should be fine.
 
 # Mock services before importing app
-# We need to use patch for modules that are imported by app.main or its dependencies
-with patch("app.services.qdrant_client.qdrant_service") as mock_qdrant, \
-     patch("app.services.llm_client.llm_client") as mock_llm, \
-     patch("app.services.stt_service.get_stt_service") as mock_get_stt, \
-     patch("app.services.tts_service.get_tts_service") as mock_get_tts:
-
-    # Setup service mocks
-    mock_qdrant.initialize = MagicMock()
-    mock_qdrant.close = MagicMock()
-    mock_llm.initialize = MagicMock()
-    mock_llm.close = MagicMock()
-
-    # Setup STT mock
-    mock_stt_instance = MagicMock()
-    mock_stt_instance.initialize = MagicMock()
-    mock_get_stt.return_value = mock_stt_instance
-
-    # Setup TTS mock
-    mock_tts_instance = MagicMock()
-    mock_tts_instance.initialize = MagicMock()
-    mock_get_tts.return_value = mock_tts_instance
+with patch("app.services.qdrant_client.QdrantService.initialize", new_callable=MagicMock), \
+     patch("app.services.llm_client.LLMClient.initialize", new_callable=MagicMock), \
+     patch("app.services.stt_service.GroqWhisperSTT.initialize", new_callable=MagicMock), \
+     patch("app.services.tts_service.EdgeTTS.initialize", new_callable=MagicMock):
 
     # Now import app and components
     from app.main import app
@@ -123,11 +160,8 @@ def test_list_materials_empty_params():
 
 def test_list_materials_server_error():
     """Test that the endpoint returns 500 when an exception occurs."""
-    # Mock upload_status.values() to raise an exception
-    # Since upload_status is a dict, we can't easily mock .values() directly unless we replace the object
-    # But it's imported into app.api.materials, so we can patch it there.
-
     with patch("app.api.materials.upload_status", MagicMock()) as mock_status:
+        # Mocking values() on a dict mock requires some care.
         mock_status.values.side_effect = Exception("Database connection lost")
 
         response = client.get("/api/materials/list?user_id=user1")
