@@ -9,6 +9,25 @@ sys.modules["torch"] = MagicMock()
 sys.modules["torchvision"] = MagicMock()
 # sys.modules["numpy"] = MagicMock()  # numpy is installed
 
+# Mock groq and other AI clients
+sys.modules["groq"] = MagicMock()
+sys.modules["groq.types"] = MagicMock()
+sys.modules["groq.types.chat"] = MagicMock()
+sys.modules["langgraph"] = MagicMock()
+sys.modules["langchain"] = MagicMock()
+sys.modules["langchain_google_genai"] = MagicMock()
+sys.modules["ddgs"] = MagicMock()
+sys.modules["deepgram"] = MagicMock()
+sys.modules["openai"] = MagicMock()
+sys.modules["faster_whisper"] = MagicMock()
+sys.modules["elevenlabs"] = MagicMock()
+sys.modules["websockets"] = MagicMock()
+
+# Mock app.api.ws to avoid loading it and its dependencies (langgraph etc)
+mock_ws = MagicMock()
+mock_ws.sio = MagicMock()
+sys.modules["app.api.ws"] = mock_ws
+
 # Set required environment variables
 os.environ["GROQ_API_KEY"] = "mock_key"
 
@@ -181,3 +200,34 @@ def test_list_materials_special_chars():
         data = response.json()
         assert data["count"] == 1
         assert data["materials"][0]["filename"] == "code.cpp"
+
+def test_list_materials_partial_data():
+    """Test behavior when internal data is missing optional fields (e.g. course_id)."""
+    # Entry with user_id but missing course_id
+    # This simulates a potential data corruption or legacy data issue
+    partial_data = {
+        "job_partial": {
+            "job_id": "job_partial",
+            "status": "completed",
+            "filename": "partial.pdf",
+            "user_id": "user1",
+            # course_id is missing
+        }
+    }
+
+    with patch.dict("app.api.materials.upload_status", partial_data, clear=True):
+        # Case 1: List without course_id filter
+        # Should succeed because 'course_id is None' short-circuits the check
+        response = client.get("/api/materials/list?user_id=user1")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["count"] == 1
+        assert data["materials"][0]["job_id"] == "job_partial"
+
+        # Case 2: List WITH course_id filter
+        # Should fail with 500 because status["course_id"] is accessed and raises KeyError
+        response = client.get("/api/materials/list?user_id=user1&course_id=math101")
+        assert response.status_code == 500
+        data = response.json()
+        assert "List failed" in data["detail"]
+        assert "'course_id'" in data["detail"]
