@@ -173,6 +173,16 @@ async def test_embed_text_success(llm_client, mock_sentence_transformer):
     mock_st_instance.encode.assert_called_with("Test text")
 
 @pytest.mark.asyncio
+async def test_embed_text_failure(llm_client, mock_sentence_transformer):
+    mock_st_instance = mock_sentence_transformer.return_value
+    mock_st_instance.encode.side_effect = Exception("Encoding error")
+
+    await llm_client.initialize()
+
+    with pytest.raises(Exception, match="Encoding error"):
+        await llm_client.embed_text("Test text")
+
+@pytest.mark.asyncio
 async def test_embed_text_uninitialized(llm_client):
     with pytest.raises(RuntimeError, match="Embedding model not initialized"):
         await llm_client.embed_text("Test text")
