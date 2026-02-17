@@ -46,6 +46,15 @@ with patch("app.services.qdrant_client.QdrantService.initialize", AsyncMock()), 
     # But since we mocked sys.modules['edge_tts'], the import should succeed.
 
     from fastapi.testclient import TestClient
+import pytest
+from unittest.mock import AsyncMock, patch
+from fastapi.testclient import TestClient
+
+# Mock services BEFORE importing app
+with patch("app.services.qdrant_client.qdrant_service.initialize", AsyncMock()), \
+     patch("app.services.llm_client.llm_client.initialize", AsyncMock()), \
+     patch("app.services.stt_service.STTService.initialize", AsyncMock()), \
+     patch("app.services.tts_service.TTSService.initialize", AsyncMock()):
     from app.main import app
     from app.api.materials import upload_status
     from app.config import settings
@@ -110,6 +119,12 @@ def test_upload_materials_file_too_large():
     """Test upload with file exceeding max size."""
     # We use app.config.settings directly because app.api.materials imports settings from there
     with patch.object(settings, 'upload_max_size', new=5):
+    assert response.status_code == 400
+    assert response.json()["detail"] == "No filename provided"
+
+def test_upload_materials_file_too_large():
+    """Test upload with file exceeding max size."""
+    with patch("app.api.materials.settings.upload_max_size", 5):
         files = {"file": ("test.txt", b"too large content", "text/plain")}
         data = {"user_id": "user123"}
 

@@ -4,6 +4,7 @@ Represents the complete state of a tutoring session.
 """
 
 import logging
+import time
 from enum import Enum
 from typing import Any, Dict, List, Optional, TypedDict
 
@@ -172,8 +173,6 @@ def add_message(state: TutorState, role: str, content: str) -> TutorState:
     Returns:
         Updated state
     """
-    import time
-
     message: Message = {"role": role, "content": content, "timestamp": time.time()}
 
     state["messages"].append(message)

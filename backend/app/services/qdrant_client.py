@@ -5,9 +5,10 @@ Manages student notes/materials and memory summaries.
 """
 
 import logging
+import uuid
 from typing import Any, Dict, List, Optional
 
-from qdrant_client import QdrantClient
+from qdrant_client import AsyncQdrantClient
 from qdrant_client.http import models
 from qdrant_client.http.exceptions import UnexpectedResponse
 
@@ -26,7 +27,7 @@ class QdrantService:
         self.collection_notes = settings.qdrant_collection_notes
         self.collection_memory = settings.qdrant_collection_memory
         self.vector_size = settings.qdrant_vector_size
-        self.client: Optional[QdrantClient] = None
+        self.client: Optional[AsyncQdrantClient] = None
 
         logger.debug(
             "QdrantService instantiated",
@@ -44,9 +45,9 @@ class QdrantService:
             logger.debug("Connecting to Qdrant...", extra={"url": self.url})
 
             if self.url == ":memory:":
-                self.client = QdrantClient(location=":memory:", timeout=30)
+                self.client = AsyncQdrantClient(location=":memory:", timeout=30)
             else:
-                self.client = QdrantClient(url=self.url, api_key=self.api_key, timeout=30)
+                self.client = AsyncQdrantClient(url=self.url, api_key=self.api_key, timeout=30)
 
             logger.info("Qdrant client connected successfully")
 
@@ -72,7 +73,7 @@ class QdrantService:
         try:
             logger.debug("Closing Qdrant client...")
             if self.client:
-                self.client.close()
+                await self.client.close()
             self.client = None
             logger.info("Qdrant client closed successfully")
         except Exception as e:
@@ -97,7 +98,7 @@ class QdrantService:
                 return False
 
             # Try to list collections
-            collections = self.client.get_collections()
+            collections = await self.client.get_collections()
             is_healthy = collections is not None
 
             logger.debug(
@@ -134,7 +135,7 @@ class QdrantService:
 
             # Check if collection exists
             try:
-                collection_info = self.client.get_collection(collection_name)
+                collection_info = await self.client.get_collection(collection_name)
                 logger.info(
                     f"Collection already exists: {collection_name}",
                     extra={
@@ -161,7 +162,7 @@ class QdrantService:
             )
 
             try:
-                self.client.create_collection(
+                await self.client.create_collection(
                     collection_name=collection_name,
                     vectors_config=models.VectorParams(
                         size=self.vector_size, distance=models.Distance.COSINE
@@ -224,7 +225,7 @@ class QdrantService:
             logger.debug(f"Prepared {len(points)} points for upsert")
 
             # Upsert to Qdrant
-            self.client.upsert(collection_name=self.collection_notes, points=points)
+            await self.client.upsert(collection_name=self.collection_notes, points=points)
 
             logger.info(
                 "Note chunks upserted successfully",
@@ -295,7 +296,7 @@ class QdrantService:
             )
 
             # Search
-            results = self.client.search(
+            results = await self.client.search(
                 collection_name=self.collection_notes,
                 query_vector=query_embedding,
                 query_filter=query_filter,
@@ -361,7 +362,9 @@ class QdrantService:
             if not self.client:
                 raise RuntimeError("Qdrant client not initialized")
 
-            point_id = f"memory:{user_id}:{session_id}"
+            # Generate a deterministic UUID from the string ID
+            point_id_str = f"memory:{user_id}:{session_id}"
+            point_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, point_id_str))
 
             point = models.PointStruct(
                 id=point_id,
@@ -369,7 +372,7 @@ class QdrantService:
                 payload={"user_id": user_id, "session_id": session_id, "memory_data": memory_data},
             )
 
-            self.client.upsert(collection_name=self.collection_memory, points=[point])
+            await self.client.upsert(collection_name=self.collection_memory, points=[point])
 
             logger.info(
                 "Memory upserted successfully",
@@ -407,7 +410,7 @@ class QdrantService:
                 raise RuntimeError("Qdrant client not initialized")
 
             # Scroll through memories for this user
-            records, _ = self.client.scroll(
+            records, _ = await self.client.scroll(
                 collection_name=self.collection_memory,
                 scroll_filter=models.Filter(
                     must=[
