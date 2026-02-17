@@ -269,3 +269,69 @@ def test_list_materials_empty():
     json_resp = response.json()
     assert json_resp["count"] == 0
     assert json_resp["materials"] == []
+
+def test_list_materials_empty_params():
+    """Test validation errors for missing parameters."""
+    # Missing user_id
+    response = client.get("/api/materials/list")
+    assert response.status_code == 422  # Validation Error
+
+def test_list_materials_server_error():
+    """Test that the endpoint returns 500 when an exception occurs."""
+    # Mock upload_status.values() to raise an exception
+    # We patch the object in the module where it is used
+    with patch("app.api.materials.upload_status", MagicMock()) as mock_status:
+        mock_status.values.side_effect = Exception("Database connection lost")
+
+        response = client.get("/api/materials/list?user_id=user1")
+
+        assert response.status_code == 500
+        data = response.json()
+        assert "List failed" in data["detail"]
+        assert "Database connection lost" in data["detail"]
+
+def test_list_materials_malformed_data():
+    """Test behavior when internal data is malformed (missing keys)."""
+    # Add an entry missing 'user_id' which will cause KeyError during iteration
+    malformed_data = {
+        "bad_job": {
+            "job_id": "bad_job",
+            "status": "processing",
+            # Missing user_id and course_id
+        }
+    }
+
+    # We use patch.dict because upload_status is a global dict
+    with patch.dict("app.api.materials.upload_status", malformed_data, clear=True):
+        response = client.get("/api/materials/list?user_id=user1")
+
+        assert response.status_code == 500
+        data = response.json()
+        # The error message should mention the missing key
+        assert "KeyError" in data["detail"] or "'user_id'" in data["detail"]
+
+def test_list_materials_special_chars():
+    """Test handling of special characters in parameters."""
+    user_id = "user test@example.com"
+    course_id = "C++ Advanced"
+
+    test_data = {
+        "job_special": {
+            "job_id": "job_special",
+            "status": "completed",
+            "filename": "code.cpp",
+            "user_id": user_id,
+            "course_id": course_id,
+            "progress": 100,
+            "message": "Done"
+        }
+    }
+
+    with patch.dict("app.api.materials.upload_status", test_data, clear=True):
+        # URL encoded parameters handled by TestClient/FastAPI
+        response = client.get(f"/api/materials/list", params={"user_id": user_id, "course_id": course_id})
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["count"] == 1
+        assert data["materials"][0]["filename"] == "code.cpp"
