@@ -5,8 +5,8 @@ Uses embeddings and Qdrant vector search.
 
 import asyncio
 import logging
-import asyncio
 
+from app.config import settings
 from app.graph.state import RAGContext, RoutingDecision, TutorState
 from app.services.llm_client import llm_client
 from app.services.qdrant_client import qdrant_service
@@ -70,18 +70,9 @@ async def rag_node(state: TutorState) -> TutorState:
 
         # Normalize the query to check for generic "what's in my doc" questions
         normalized_query = query_text.lower().strip().replace("?", "").replace(".", "")
-        generic_queries = [
-            "what is in that pdf",
-            "what is in my pdf",
-            "what are my notes about",
-            "tell me about my document",
-            "what is this pdf about",
-            "so what is in that pdf you tell me",
-            "give me an idea first",
-        ]
 
         # Check if the normalized query is one of the generic phrases
-        is_generic_query = any(q in normalized_query for q in generic_queries)
+        is_generic_query = any(q in normalized_query for q in settings.rag_generic_queries)
 
         if is_generic_query:
             logger.debug(
@@ -116,7 +107,7 @@ async def rag_node(state: TutorState) -> TutorState:
         # Fallback: Web Search if results are poor
         top_score = search_results[0]["score"] if search_results else 0.0
         
-        if top_score < 0.5:
+        if top_score < settings.rag_similarity_threshold:
             logger.info(
                 f"Low RAG score ({top_score:.2f}). Initiating Web Search via DuckDuckGo...",
                 extra={"query": query_text},
@@ -177,9 +168,9 @@ async def rag_node(state: TutorState) -> TutorState:
                     "top_score": top_score,
                     "results_count": len(rag_context),
                     "quality": "high"
-                    if top_score > 0.7
+                    if top_score > settings.rag_high_quality_threshold
                     else "medium"
-                    if top_score > 0.5
+                    if top_score > settings.rag_similarity_threshold
                     else "low",
                 },
             )
