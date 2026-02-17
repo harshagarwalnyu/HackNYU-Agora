@@ -6,6 +6,7 @@ Handles interactions with Groq's high-performance API (Llama 3 / Mixtral).
 import logging
 import json
 import asyncio
+from functools import partial
 from typing import Any, Dict, List, Optional, cast, Union
 
 from groq import AsyncGroq
@@ -39,8 +40,11 @@ class LLMClient:
             self.client = AsyncGroq(api_key=self.api_key)
 
             logger.debug("Loading local embedding model: all-MiniLM-L6-v2...")
-            # Run on CPU is fine for small batches
-            self.embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+            # Run on separate thread to prevent blocking event loop during model load
+            loop = asyncio.get_running_loop()
+            self.embedding_model = await loop.run_in_executor(
+                None, partial(SentenceTransformer, "all-MiniLM-L6-v2")
+            )
 
             logger.info("LLM client initialized successfully (Groq + SentenceTransformer)")
 
@@ -140,7 +144,9 @@ class LLMClient:
 
             # Run on a separate thread to prevent blocking the event loop
             loop = asyncio.get_running_loop()
-            embedding = await loop.run_in_executor(None, self.embedding_model.encode, text)
+            embedding = await loop.run_in_executor(
+                None, partial(self.embedding_model.encode, text)
+            )
             return cast(List[float], embedding.tolist())
 
         except Exception:
