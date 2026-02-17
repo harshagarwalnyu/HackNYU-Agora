@@ -11,6 +11,7 @@ from typing import Callable, List, Optional, cast
 import aiofiles
 from app.services.llm_client import llm_client
 from app.services.qdrant_client import qdrant_service
+from app.utils.text_processing import chunk_text
 
 logger = logging.getLogger(__name__)
 
