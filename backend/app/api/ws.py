@@ -24,9 +24,23 @@ router = APIRouter()
 # Create Socket.IO server
 # Note: python-socketio 5.x uses Engine.IO 5.x protocol
 # Client must use socket.io-client 4.x or 5.x compatible version
+# Configure allowed origins, ensuring no wildcard access
+allowed_origins = settings.backend_cors_origins
+
+# Handle potential None or wildcard
+if allowed_origins and "*" in allowed_origins:
+    logger.warning("Wildcard CORS origin '*' found in settings. Removing it for WebSocket security.")
+    allowed_origins = [origin for origin in allowed_origins if origin != "*"]
+
+# If allowed_origins is empty (either initially or after filtering),
+# set to None to enforce strict same-origin check.
+# Passing an empty list [] to python-socketio disables CORS checks entirely (insecure).
+if not allowed_origins:
+    allowed_origins = None
+
 sio = socketio.AsyncServer(
     async_mode="asgi",
-    cors_allowed_origins=settings.backend_cors_origins,
+    cors_allowed_origins=allowed_origins,
     logger=True,
     engineio_logger=True,
     ping_timeout=60,
