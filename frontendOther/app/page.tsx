@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { OrbStatus } from '@/components/orb-status';
 import { RecorderButton } from '@/components/recorder-button';
 import { TranscriptPanel } from '@/components/transcript-panel';
@@ -57,7 +57,7 @@ export default function AgoraPage() {
     return () => window.removeEventListener('agora:visual', handleVisualAction);
   }, []);
 
-  const handleAudioSubmit = async (blob: Blob) => {
+  const handleAudioSubmit = useCallback(async (blob: Blob) => {
     if (!isReady) {
       console.error('[Agora] WebSocket not ready');
       return;
@@ -70,7 +70,7 @@ export default function AgoraPage() {
       console.error('[Agora] Failed to send audio:', error);
       setOrbState('idle');
     }
-  };
+  }, [isReady, sendAudio]);
 
   const handleTextSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
