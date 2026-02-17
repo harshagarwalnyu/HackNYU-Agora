@@ -88,7 +88,28 @@ async def upload_materials(
 
         # Save file to storage
         file_ext = Path(file.filename).suffix
-        storage_path = settings.storage_path / user_id / course_id
+
+        # Security check: Ensure we don't write outside storage path
+        try:
+            base_storage_path = settings.storage_path.resolve()
+            storage_path = (settings.storage_path / user_id / course_id).resolve()
+
+            if not storage_path.is_relative_to(base_storage_path):
+                logger.warning(
+                    "Path traversal attempt blocked",
+                    extra={"user_id": user_id, "course_id": course_id, "path": str(storage_path)}
+                )
+                raise HTTPException(status_code=403, detail="Invalid path traversal detected")
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(
+                "Path resolution failed",
+                extra={"error": str(e), "user_id": user_id},
+                exc_info=True
+            )
+            raise HTTPException(status_code=400, detail="Invalid path components")
+
         storage_path.mkdir(parents=True, exist_ok=True)
 
         file_path = storage_path / f"{job_id}{file_ext}"
