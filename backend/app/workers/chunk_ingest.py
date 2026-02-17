@@ -314,14 +314,14 @@ def chunk_text(text: str, chunk_size: int = 512, overlap: int = 50) -> List[str]
     Returns:
         List of text chunks
     """
+    if not text or text.strip() == "":
+        logger.warning("Empty text, returning empty list")
+        return []
+
     logger.debug(
         "Chunking text",
         extra={"text_length": len(text), "chunk_size": chunk_size, "overlap": overlap},
     )
-
-    if not text or text.strip() == "":
-        logger.warning("Empty text, returning empty list")
-        return []
 
     chunks = []
     start = 0
