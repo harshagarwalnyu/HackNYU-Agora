@@ -1,14 +1,15 @@
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { formatTimeAgo, truncateText, cleanTranscript } from './formatting';
 
 describe('Formatting Utils', () => {
   describe('formatTimeAgo', () => {
     beforeAll(() => {
-      jest.useFakeTimers();
-      jest.setSystemTime(new Date('2024-01-01T12:00:00Z'));
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2024-01-01T12:00:00Z'));
     });
 
     afterAll(() => {
-      jest.useRealTimers();
+      vi.useRealTimers();
     });
 
     it('returns "just now" for dates less than 60 seconds ago', () => {

@@ -264,12 +264,6 @@ async def text_input(sid: str, data: Dict[str, Any]) -> None:
 
         logger.info("Text message received", extra={"sid": sid, "text": text_content})
 
-        # # Send transcript
-        # await sio.emit('transcript', {
-        #     'from': 'student',
-        #     'text': text_content
-        # }, to=sid)
-
         # Process (cancellable)
         task = asyncio.create_task(
             process_and_respond(sid=sid, state=state, user_text=text_content, audio_format=None)
