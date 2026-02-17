@@ -5,8 +5,9 @@ Parses PDFs, images, and other documents, chunks them, generates embeddings, and
 
 import logging
 import asyncio
+import uuid
 from pathlib import Path
-from typing import Callable, List, Optional, cast
+from typing import Callable, List, Optional
 
 import aiofiles
 from app.services.llm_client import llm_client
@@ -79,9 +80,8 @@ async def process_document(
 
         # Generate embeddings and prepare for Qdrant
         logger.debug("Generating embeddings for all chunks...")
-        chunk_data = []
 
-        for idx, chunk_content in enumerate(chunks):
+        async def process_chunk(idx, chunk_content):
             logger.debug(
                 f"Embedding chunk {idx + 1}/{len(chunks)}",
                 extra={"chunk_index": idx, "chunk_length": len(chunk_content)},
@@ -91,26 +91,26 @@ async def process_document(
             embedding = await llm_client.embed_text(chunk_content)
 
             # Create chunk data - use UUID for Qdrant point ID
-            import uuid
-
             chunk_id = str(uuid.uuid4())
-            chunk_data.append(
-                {
-                    "id": chunk_id,
-                    "text": chunk_content,
-                    "embedding": embedding,
-                    "metadata": {
-                        "source_file": Path(file_path).name,
-                        "chunk_index": idx,
-                        "job_id": job_id,
-                    },
-                }
-            )
 
             logger.debug(
                 f"Chunk {idx + 1} embedded",
                 extra={"chunk_id": chunk_id, "embedding_dim": len(embedding)},
             )
+
+            return {
+                "id": chunk_id,
+                "text": chunk_content,
+                "embedding": embedding,
+                "metadata": {
+                    "source_file": Path(file_path).name,
+                    "chunk_index": idx,
+                    "job_id": job_id,
+                },
+            }
+
+        # Process all chunks in parallel
+        chunk_data = await asyncio.gather(*(process_chunk(idx, content) for idx, content in enumerate(chunks)))
 
         logger.info("All embeddings generated", extra={"chunks_count": len(chunk_data)})
 
