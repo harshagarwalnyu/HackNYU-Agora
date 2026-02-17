@@ -187,7 +187,8 @@ class QdrantService:
         self, user_id: str, course_id: str, chunks: List[Dict[str, Any]]
     ) -> None:
         """
-        Insert or update note chunks with embeddings.
+        Insert or update note chunks with embeddings asynchronously.
+        Uses AsyncQdrantClient for non-blocking I/O.
 
         Args:
             user_id: User identifier
