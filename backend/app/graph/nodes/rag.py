@@ -5,6 +5,8 @@ Uses embeddings and Qdrant vector search.
 
 import logging
 
+from ddgs import DDGS
+
 from app.graph.state import RAGContext, RoutingDecision, TutorState
 from app.services.llm_client import llm_client
 from app.services.qdrant_client import qdrant_service
@@ -94,23 +96,24 @@ async def rag_node(state: TutorState) -> TutorState:
         top_score = search_results[0]["score"] if search_results else 0.0
         
         if top_score < 0.5:
-            logger.info(f"Low RAG score ({top_score:.2f}). Initiating Web Search via DuckDuckGo...", extra={"query": query_text})
-            
+            logger.info(
+                f"Low RAG score ({top_score:.2f}). Initiating Web Search via DuckDuckGo...",
+                extra={"query": query_text},
+            )
+
             try:
-                from duckduckgo_search import DDGS
-                
                 web_results = []
                 with DDGS() as ddgs:
                     # Search for top 3 results
                     results = list(ddgs.text(query_text, max_results=3))
-                    
+
                     for res in results:
                         web_results.append({
                             "text": f"[WEB SOURCE: {res['title']}] {res['body']}",
-                            "score": 0.9, # Assign high confidence to fresh web results
-                            "metadata": {"source": "web_search", "url": res["href"]}
+                            "score": 0.9,  # Assign high confidence to fresh web results
+                            "metadata": {"source": "web_search", "url": res["href"]},
                         })
-                
+
                 if web_results:
                     logger.info(f"Found {len(web_results)} web results")
                     # Append web results to search results
