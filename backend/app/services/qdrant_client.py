@@ -209,9 +209,8 @@ class QdrantService:
                 return
 
             # Build points
-            points = []
-            for chunk in chunks:
-                point = models.PointStruct(
+            points = [
+                models.PointStruct(
                     id=chunk["id"],
                     vector=chunk["embedding"],
                     payload={
@@ -221,7 +220,8 @@ class QdrantService:
                         "metadata": chunk.get("metadata", {}),
                     },
                 )
-                points.append(point)
+                for chunk in chunks
+            ]
 
             logger.debug(f"Prepared {len(points)} points for upsert")
 
