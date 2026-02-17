@@ -65,7 +65,6 @@ export default function AgoraPage() {
 
     try {
       setOrbState('thinking');
-      // addMessage('student', 'Recording...');
       await sendAudio(blob);
     } catch (error) {
       console.error('[Agora] Failed to send audio:', error);
