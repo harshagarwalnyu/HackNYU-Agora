@@ -40,4 +40,31 @@ describe('cn utility', () => {
     // bg-black is not overridden
     expect(cn('text-red-500 bg-black', 'text-blue-500')).toBe('bg-black text-blue-500')
   })
+
+  it('should handle nested arrays', () => {
+    expect(cn(['class1', ['class2', 'class3']])).toBe('class1 class2 class3')
+  })
+
+  it('should normalize whitespace', () => {
+    expect(cn('  class1  ', '  class2  ')).toBe('class1 class2')
+  })
+
+  it('should ignore falsy values including zero', () => {
+    expect(cn('class1', 0, false, null, undefined, '')).toBe('class1')
+  })
+
+  it('should handle numbers greater than zero', () => {
+    // Numbers are converted to strings by clsx and then merged.
+    // 1 becomes '1', which is not a tailwind class but is preserved.
+    expect(cn('class1', 1)).toBe('class1 1')
+  })
+
+  it('should handle specific Tailwind conflicts', () => {
+    // p-4 (padding: 1rem) vs px-2 (padding-left/right: 0.5rem)
+    // If p-4 comes last, it overrides everything.
+    expect(cn('px-2 py-2', 'p-4')).toBe('p-4')
+
+    // If px-2 comes last, it overrides horizontal padding of p-4
+    expect(cn('p-4', 'px-2')).toBe('p-4 px-2')
+  })
 })
