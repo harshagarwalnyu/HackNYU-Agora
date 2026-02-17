@@ -83,6 +83,8 @@ export function useWebSocket() {
 
 
   useEffect(() => {
+    let isMounted = true;
+
     const setupConnection = async () => {
       try {
         const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:8000';
@@ -97,6 +99,8 @@ export function useWebSocket() {
           sessionId,
         });
 
+        if (!isMounted) return;
+
         // Register the stable callbacks
         wsClient.on('session_initialized', onSessionInitialized);
         wsClient.on('transcript', onTranscript);
@@ -107,6 +111,7 @@ export function useWebSocket() {
         wsClient.on('error', onError);
 
       } catch (err) {
+        if (!isMounted) return;
         const message = err instanceof Error ? err.message : 'Connection failed';
         setError(message);
         console.error('[Agora] WebSocket setup failed:', err);
@@ -118,7 +123,9 @@ export function useWebSocket() {
       setupConnection();
     }
 
+    // Cleanup WebSocket listeners on unmount or dependency change
     return () => {
+      isMounted = false;
       console.log('[Agora] Cleaning up WebSocket listeners...');
       // Un-register the listeners to prevent leaks
       // Note: Cannot remove 'connect' handler without storing its reference
