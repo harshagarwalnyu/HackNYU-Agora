@@ -65,10 +65,12 @@ class EdgeTTS(TTSEngine):
 
             # Accumulate bytes in memory
             # The library typically wants to write to file, but we can iterate chunks
-            audio_data = b""
+            audio_chunks = []
             async for chunk in communicate.stream():
                 if chunk["type"] == "audio":
-                    audio_data += chunk["data"]
+                    audio_chunks.append(chunk["data"])
+
+            audio_data = b"".join(audio_chunks)
 
             if not audio_data:
                 raise RuntimeError("Edge TTS produced empty audio")

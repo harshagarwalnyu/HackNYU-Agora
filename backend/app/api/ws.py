@@ -188,10 +188,6 @@ async def audio_input(sid: str, data: Dict[str, Any]) -> None:
 
         logger.debug(f"Parsed file extension: {file_extension}")
 
-        file_extension = "webm"
-        if "/" in audio_format:
-            file_extension = audio_format.split("/")[-1]
-
         # Transcribe
         logger.debug("Transcribing audio...")
         await sio.emit("session_status", {"message": "Transcribing..."}, to=sid)
@@ -263,12 +259,6 @@ async def text_input(sid: str, data: Dict[str, Any]) -> None:
             return
 
         logger.info("Text message received", extra={"sid": sid, "text": text_content})
-
-        # # Send transcript
-        # await sio.emit('transcript', {
-        #     'from': 'student',
-        #     'text': text_content
-        # }, to=sid)
 
         # Process (cancellable)
         task = asyncio.create_task(
