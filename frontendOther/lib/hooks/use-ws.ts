@@ -83,6 +83,8 @@ export function useWebSocket() {
 
 
   useEffect(() => {
+    let isMounted = true;
+
     const setupConnection = async () => {
       try {
         const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:8000';
@@ -97,7 +99,9 @@ export function useWebSocket() {
           sessionId,
         });
 
-        // ** FIX: Register the stable callbacks **
+        if (!isMounted) return;
+
+        // Register the stable callbacks
         wsClient.on('session_initialized', onSessionInitialized);
         wsClient.on('transcript', onTranscript);
         wsClient.on('audio_response', onAudioResponse);
@@ -107,6 +111,7 @@ export function useWebSocket() {
         wsClient.on('error', onError);
 
       } catch (err) {
+        if (!isMounted) return;
         const message = err instanceof Error ? err.message : 'Connection failed';
         setError(message);
         console.error('[Agora] WebSocket setup failed:', err);
@@ -118,10 +123,11 @@ export function useWebSocket() {
       setupConnection();
     }
 
-    // ** FIX: The Correct Cleanup Function **
+    // Cleanup WebSocket listeners on unmount or dependency change
     return () => {
+      isMounted = false;
       console.log('[Agora] Cleaning up WebSocket listeners...');
-      // ** Un-register the listeners to prevent leaks **
+      // Un-register the listeners to prevent leaks
       // Note: Cannot remove 'connect' handler without storing its reference
       wsClient.off('connect', onConnect);
       wsClient.off('session_initialized', onSessionInitialized);
@@ -135,7 +141,6 @@ export function useWebSocket() {
       wsClient.disconnect();
       audioPlayer.stop();
     };
-    // ** FIX: Update dependency array **
     // We only want this effect to run when the session IDs change, not when
     // state setters from Zustand change.
   }, [userId, sessionId, currentTopic,
