@@ -60,6 +60,7 @@ class Settings(BaseSettings):
     # Storage
     storage_path: Path = Field(default=Path("backend/storage"))
     upload_max_size: int = 50 * 1024 * 1024  # 50MB
+    upload_status_history_size: int = 1000  # Max number of upload statuses to keep in memory
 
     # Session & Memory
     session_timeout: int = 3600  # 1 hour
