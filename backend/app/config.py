@@ -72,6 +72,19 @@ class Settings(BaseSettings):
     enable_frustration_monitor: bool = True
     enable_self_explanation: bool = False  # Advanced feature
 
+    # RAG Configuration
+    rag_generic_queries: List[str] = [
+        "what is in that pdf",
+        "what is in my pdf",
+        "what are my notes about",
+        "tell me about my document",
+        "what is this pdf about",
+        "so what is in that pdf you tell me",
+        "give me an idea first",
+    ]
+    rag_similarity_threshold: float = 0.5  # Threshold for triggering web search
+    rag_high_quality_threshold: float = 0.7  # Threshold for high confidence retrieval
+
     @field_validator("backend_cors_origins", mode="before")
     @classmethod
     def assemble_cors_origins(cls, v: str | list[str]) -> list[str] | str:

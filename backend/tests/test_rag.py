@@ -53,7 +53,7 @@ async def test_rag_node_low_score_fallback():
     mock_qdrant_service.search_notes = AsyncMock(return_value=mock_search_results)
 
     # patch DDGS
-    with patch("app.graph.nodes.rag.DDGS") as mock_ddgs_cls:
+    with patch("duckduckgo_search.DDGS") as mock_ddgs_cls:
 
         # Mock DDGS context manager and text search
         mock_ddgs_instance = MagicMock()
@@ -78,3 +78,30 @@ async def test_rag_node_low_score_fallback():
         assert ddg_result["score"] == 0.9
         assert ddg_result["metadata"]["source"] == "web_search"
         assert ddg_result["metadata"]["url"] == "http://python.org"
+
+@pytest.mark.asyncio
+async def test_rag_node_generic_query():
+    state = {
+        "user_id": "test_user",
+        "session_id": "test_session",
+        "routing": RoutingDecision.NEW_QUESTION,
+        "last_user_text": "tell me about my document",
+        "rag_context": [],
+        "course_id": "test_course"
+    }
+
+    # Mock qdrant search results
+    mock_search_results = [{"score": 0.8, "text": "Some notes", "metadata": {}}]
+
+    mock_llm_client = sys.modules["app.services.llm_client"].llm_client
+    mock_llm_client.embed_query = AsyncMock(return_value=[0.1] * 768)
+
+    mock_qdrant_service = sys.modules["app.services.qdrant_client"].qdrant_service
+    mock_qdrant_service.search_notes = AsyncMock(return_value=mock_search_results)
+
+    # We want to verify that embed_query was called with the summarized query, not the original
+    expected_query = "A general summary of all topics, concepts, and content in the document."
+
+    await rag_node(state)
+
+    mock_llm_client.embed_query.assert_called_with(expected_query)
