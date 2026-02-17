@@ -3,6 +3,7 @@ RAG Node - Retrieves relevant context from student notes.
 Uses embeddings and Qdrant vector search.
 """
 
+import asyncio
 import logging
 import asyncio
 
@@ -116,8 +117,11 @@ async def rag_node(state: TutorState) -> TutorState:
         top_score = search_results[0]["score"] if search_results else 0.0
         
         if top_score < 0.5:
-            logger.info(f"Low RAG score ({top_score:.2f}). Initiating Web Search via DuckDuckGo...", extra={"query": query_text})
-            
+            logger.info(
+                f"Low RAG score ({top_score:.2f}). Initiating Web Search via DuckDuckGo...",
+                extra={"query": query_text},
+            )
+
             try:
                 # Run the blocking search in a separate thread
                 web_results = await asyncio.to_thread(_perform_web_search, query_text)
@@ -130,8 +134,8 @@ async def rag_node(state: TutorState) -> TutorState:
                     logger.warning("Web search returned no results")
                     
             except Exception as e:
-                logger.error(f"Web search failed: {e}", exc_info=True)
-                # Fallback mock if DDG fails
+                logger.error(f"Async web search execution failed: {e}", exc_info=True)
+                # Fallback mock if DDG execution fails completely
                 web_results = [
                     {
                         "text": f"[WEB SEARCH FAILED] Could not retrieve external information for '{query_text}'.",
