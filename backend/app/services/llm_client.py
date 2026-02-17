@@ -30,12 +30,18 @@ class LLMClient:
 
         self.client: Optional[AsyncGroq] = None
         self.embedding_model: Optional[SentenceTransformer] = None
+        self.is_dummy = False
 
         logger.debug("LLMClient instantiated", extra={"model": self.model_name})
 
     async def initialize(self) -> None:
         """Initialize the Groq client and local embedding model."""
         try:
+            if self.api_key == "dummy":
+                self.is_dummy = True
+                logger.info("LLM client initialized in DUMMY mode")
+                return
+
             logger.debug("Initializing Groq client...")
             self.client = AsyncGroq(api_key=self.api_key)
 
@@ -64,6 +70,9 @@ class LLMClient:
     async def health_check(self) -> bool:
         """Check if Groq API is accessible."""
         try:
+            if self.is_dummy:
+                return True
+
             if not self.client:
                 return False
 
@@ -86,6 +95,10 @@ class LLMClient:
     ) -> str:
         """Generate text using Groq."""
         try:
+            if self.is_dummy:
+                logger.info("Generating dummy text response")
+                return "This is a dummy response from the AI."
+
             if not self.client:
                 raise RuntimeError("LLM client not initialized")
 
@@ -115,6 +128,10 @@ class LLMClient:
     ) -> Dict[str, Any]:
         """Generate JSON using Groq."""
         try:
+            if self.is_dummy:
+                logger.info("Generating dummy JSON response")
+                return {"response": "This is a dummy JSON response", "data": [1, 2, 3]}
+
             # Enforce JSON mode via system prompt
             json_instruction = (
                 "\nIMPORTANT: You must respond with valid JSON only. No markdown, no explanations."
@@ -139,6 +156,11 @@ class LLMClient:
     async def embed_text(self, text: str) -> List[float]:
         """Generate local embeddings."""
         try:
+            if self.is_dummy:
+                # Return random vector of size 768
+                import random
+                return [random.random() for _ in range(768)]
+
             if not self.embedding_model:
                 raise RuntimeError("Embedding model not initialized")
 
@@ -178,6 +200,9 @@ class LLMClient:
             Description or answer based on the image
         """
         try:
+            if self.is_dummy:
+                return "This is a dummy image analysis."
+
             if not self.client:
                 raise RuntimeError("LLM client not initialized")
 

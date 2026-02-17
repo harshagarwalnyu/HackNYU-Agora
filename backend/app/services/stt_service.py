@@ -41,12 +41,18 @@ class GroqWhisperSTT(STTEngine):
         self.api_key = settings.groq_api_key
         self.model = settings.stt_model
         self.client: Optional[AsyncGroq] = None
+        self.is_dummy = False
 
         logger.debug("GroqWhisperSTT instantiated", extra={"model": self.model})
 
     async def initialize(self) -> None:
         """Initialize Groq client."""
         try:
+            if self.api_key == "dummy":
+                self.is_dummy = True
+                logger.info("Groq STT initialized in DUMMY mode")
+                return
+
             logger.debug("Initializing Groq client for STT...")
             self.client = AsyncGroq(api_key=self.api_key)
             logger.info("Groq STT initialized successfully")
@@ -64,6 +70,9 @@ class GroqWhisperSTT(STTEngine):
             format: Audio format (webm, wav, etc.)
         """
         try:
+            if self.is_dummy:
+                return "This is a dummy transcription."
+
             logger.debug(
                 "Transcribing with Groq Whisper",
                 extra={"audio_size": len(audio_data), "format": format},

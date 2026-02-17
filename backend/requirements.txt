@@ -20,9 +20,9 @@ aiofiles==23.2.1
 # AI services
 groq>=0.4.0
 sentence-transformers==2.3.1
-transformers==4.37.2
-torch==2.1.2
-torchvision==0.16.2
+transformers
+torch
+torchvision
 langgraph
 
 # Vector DB
@@ -41,3 +41,5 @@ python-json-logger==2.0.7
 
 # Search
 lxml>=4.9.0
+PyPDF2
+playwright
