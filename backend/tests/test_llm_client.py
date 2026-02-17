@@ -90,6 +90,9 @@ async def test_health_check_success(llm_client, mock_groq):
     assert await llm_client.health_check() is True
 
     mock_groq_instance.chat.completions.create.assert_called_once()
+    call_kwargs = mock_groq_instance.chat.completions.create.call_args.kwargs
+    assert call_kwargs["messages"] == [{"role": "user", "content": "ping"}]
+    assert call_kwargs["max_tokens"] == 1
 
 @pytest.mark.asyncio
 async def test_health_check_failure(llm_client, mock_groq):
@@ -122,6 +125,9 @@ async def test_generate_text_success(llm_client, mock_groq):
     call_kwargs = mock_groq_instance.chat.completions.create.call_args.kwargs
     assert call_kwargs["messages"] == [{"role": "user", "content": "Test prompt"}]
     assert call_kwargs["model"] == "test_model"
+    # Ensure defaults from settings are used
+    assert call_kwargs["temperature"] == 0.7
+    assert call_kwargs["max_tokens"] == 100
 
 @pytest.mark.asyncio
 async def test_generate_text_uninitialized(llm_client):
@@ -171,6 +177,16 @@ async def test_embed_text_success(llm_client, mock_sentence_transformer):
     # this might be flaky if we don't wait?
     # run_in_executor awaits the completion, so it should be fine.
     mock_st_instance.encode.assert_called_with("Test text")
+
+@pytest.mark.asyncio
+async def test_embed_text_failure(llm_client, mock_sentence_transformer):
+    mock_st_instance = mock_sentence_transformer.return_value
+    mock_st_instance.encode.side_effect = Exception("Encoding error")
+
+    await llm_client.initialize()
+
+    with pytest.raises(Exception, match="Encoding error"):
+        await llm_client.embed_text("Test text")
 
 @pytest.mark.asyncio
 async def test_embed_text_uninitialized(llm_client):
@@ -288,3 +304,66 @@ async def test_generate_text_empty_response(llm_client, mock_groq):
 
     result = await llm_client.generate_text("Test prompt")
     assert result == ""
+
+@pytest.mark.asyncio
+async def test_generate_text_defaults(llm_client, mock_groq):
+    mock_groq_instance = AsyncMock()
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock(message=MagicMock(content="Default text"))]
+    mock_groq_instance.chat.completions.create.return_value = mock_response
+    mock_groq.return_value = mock_groq_instance
+
+    await llm_client.initialize()
+
+    result = await llm_client.generate_text("Test prompt")
+    assert result == "Default text"
+
+    call_kwargs = mock_groq_instance.chat.completions.create.call_args.kwargs
+    # Check that defaults from settings are used (0.7 and 100)
+    assert call_kwargs["temperature"] == 0.7
+    assert call_kwargs["max_tokens"] == 100
+
+@pytest.mark.asyncio
+async def test_generate_json_parameters(llm_client, mock_groq):
+    mock_groq_instance = AsyncMock()
+    json_content = '{"key": "value"}'
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock(message=MagicMock(content=json_content))]
+    mock_groq_instance.chat.completions.create.return_value = mock_response
+    mock_groq.return_value = mock_groq_instance
+
+    await llm_client.initialize()
+
+    await llm_client.generate_json("Test prompt")
+
+    call_kwargs = mock_groq_instance.chat.completions.create.call_args.kwargs
+    # Check that temperature is explicitly 0.001
+    assert call_kwargs["temperature"] == 0.001
+
+@pytest.mark.asyncio
+async def test_analyze_image_api_failure(llm_client, mock_groq):
+    mock_groq_instance = AsyncMock()
+    mock_groq_instance.chat.completions.create.side_effect = Exception("Vision API Error")
+    mock_groq.return_value = mock_groq_instance
+
+    await llm_client.initialize()
+
+    result = await llm_client.analyze_image(image_url="http://example.com/image.jpg")
+
+    assert "I could not analyze the image due to an error" in result
+    assert "Vision API Error" in result
+
+@pytest.mark.asyncio
+async def test_logging_on_failure(llm_client, mock_groq):
+    mock_groq_instance = AsyncMock()
+    mock_groq_instance.chat.completions.create.side_effect = Exception("API Error")
+    mock_groq.return_value = mock_groq_instance
+
+    await llm_client.initialize()
+
+    # Patch the logger to verify calls
+    with patch("app.services.llm_client.logger") as mock_logger:
+        with pytest.raises(Exception, match="API Error"):
+            await llm_client.generate_text("Test prompt")
+
+        mock_logger.error.assert_called_with("Text generation failed", exc_info=True)

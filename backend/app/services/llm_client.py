@@ -143,6 +143,7 @@ class LLMClient:
                 raise RuntimeError("Embedding model not initialized")
 
             # Run on a separate thread to prevent blocking the event loop
+            # SentenceTransformer.encode is CPU-bound but releases GIL, so threading is effective
             loop = asyncio.get_running_loop()
             embedding = await loop.run_in_executor(
                 None, partial(self.embedding_model.encode, text)
