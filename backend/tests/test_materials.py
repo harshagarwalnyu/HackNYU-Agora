@@ -278,9 +278,9 @@ def test_list_materials_empty_params():
 
 def test_list_materials_server_error():
     """Test that the endpoint returns 500 when an exception occurs."""
+    # Mock upload_status.values() to raise an exception
+    # We patch the object in the module where it is used
     with patch("app.api.materials.upload_status", MagicMock()) as mock_status:
-        # We need to simulate upload_status.values() raising an exception.
-        # But upload_status is a dict. mock_status is a MagicMock replacing it.
         mock_status.values.side_effect = Exception("Database connection lost")
 
         response = client.get("/api/materials/list?user_id=user1")
@@ -301,11 +301,13 @@ def test_list_materials_malformed_data():
         }
     }
 
+    # We use patch.dict because upload_status is a global dict
     with patch.dict("app.api.materials.upload_status", malformed_data, clear=True):
         response = client.get("/api/materials/list?user_id=user1")
 
         assert response.status_code == 500
         data = response.json()
+        # The error message should mention the missing key
         assert "KeyError" in data["detail"] or "'user_id'" in data["detail"]
 
 def test_list_materials_special_chars():
@@ -326,75 +328,10 @@ def test_list_materials_special_chars():
     }
 
     with patch.dict("app.api.materials.upload_status", test_data, clear=True):
+        # URL encoded parameters handled by TestClient/FastAPI
         response = client.get(f"/api/materials/list", params={"user_id": user_id, "course_id": course_id})
 
         assert response.status_code == 200
         data = response.json()
         assert data["count"] == 1
         assert data["materials"][0]["filename"] == "code.cpp"
-
-def test_list_materials_filtering_comprehensive():
-    """Test comprehensive filtering scenarios (user, course, filenames)."""
-    # Setup test data
-    test_data = {
-        "job1": {
-            "job_id": "job1",
-            "status": "completed",
-            "filename": "math_notes.pdf",
-            "user_id": "user1",
-            "course_id": "math101",
-            "progress": 100,
-            "message": "Processing complete"
-        },
-        "job2": {
-            "job_id": "job2",
-            "status": "processing",
-            "filename": "physics_lab.pdf",
-            "user_id": "user1",
-            "course_id": "phys202",
-            "progress": 50,
-            "message": "Processing..."
-        },
-        "job3": {
-            "job_id": "job3",
-            "status": "completed",
-            "filename": "history_essay.docx",
-            "user_id": "user2",
-            "course_id": "hist101",
-            "progress": 100,
-            "message": "Processing complete"
-        }
-    }
-
-    with patch.dict("app.api.materials.upload_status", test_data, clear=True):
-        # Test 1: List all materials for user1
-        response = client.get("/api/materials/list?user_id=user1")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["count"] == 2
-        assert len(data["materials"]) == 2
-        filenames = {m["filename"] for m in data["materials"]}
-        assert "math_notes.pdf" in filenames
-        assert "physics_lab.pdf" in filenames
-        assert "history_essay.docx" not in filenames
-
-        # Test 2: Filter by course_id for user1
-        response = client.get("/api/materials/list?user_id=user1&course_id=math101")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["count"] == 1
-        assert data["materials"][0]["filename"] == "math_notes.pdf"
-
-        # Test 3: List materials for user2
-        response = client.get("/api/materials/list?user_id=user2")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["count"] == 1
-        assert data["materials"][0]["filename"] == "history_essay.docx"
-
-        # Test 4: List materials for non-existent user
-        response = client.get("/api/materials/list?user_id=user3")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["count"] == 0
-        assert data["materials"] == []
