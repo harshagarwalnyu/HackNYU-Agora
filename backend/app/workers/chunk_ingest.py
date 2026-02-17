@@ -4,9 +4,11 @@ Parses PDFs, images, and other documents, chunks them, generates embeddings, and
 """
 
 import logging
+import asyncio
 from pathlib import Path
 from typing import Callable, List, Optional, cast
 
+import aiofiles
 from app.services.llm_client import llm_client
 from app.services.qdrant_client import qdrant_service
 from app.utils.text_processing import chunk_text
@@ -170,7 +172,8 @@ async def parse_with_docling(file_path: str) -> str:
 
         # Convert document
         logger.debug("Converting document...")
-        result = converter.convert(file_path)
+        loop = asyncio.get_running_loop()
+        result = await loop.run_in_executor(None, converter.convert, file_path)
 
         logger.debug("Document converted", extra={"has_result": result is not None})
 
@@ -224,8 +227,8 @@ async def parse_fallback(file_path: str) -> str:
         if suffix in [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"]:
             logger.debug("Parsing image with Gemini vision...")
 
-            with open(file_path, "rb") as f:
-                image_data = f.read()
+            async with aiofiles.open(file_path, "rb") as f:
+                image_data = await f.read()
 
             prompt = """Extract all text and content from this image.
 If it contains:
@@ -248,8 +251,8 @@ Provide a comprehensive markdown representation of everything in the image."""
         elif suffix in [".txt", ".md", ".markdown"]:
             logger.debug("Reading text file...")
 
-            with open(file_path, "r", encoding="utf-8") as f:
-                content = f.read()
+            async with aiofiles.open(file_path, "r", encoding="utf-8") as f:
+                content = await f.read()
 
             logger.info("Text file read", extra={"content_length": len(content)})
 
