@@ -237,66 +237,52 @@ async def test_analyze_image_no_input(llm_client, mock_groq):
     assert "Either image_url or image_data must be provided" in result
 
 @pytest.mark.asyncio
-async def test_generate_text_with_system_prompt(llm_client, mock_groq):
-    mock_groq_instance = AsyncMock()
-    mock_response = MagicMock()
-    mock_response.choices = [MagicMock(message=MagicMock(content="Generated text"))]
-    mock_groq_instance.chat.completions.create.return_value = mock_response
-    mock_groq.return_value = mock_groq_instance
-
-    await llm_client.initialize()
-
-    result = await llm_client.generate_text("Test prompt", system_prompt="System prompt")
-    assert result == "Generated text"
-
-    mock_groq_instance.chat.completions.create.assert_called_once()
-    call_kwargs = mock_groq_instance.chat.completions.create.call_args.kwargs
-    messages = call_kwargs["messages"]
-    assert len(messages) == 2
-    assert messages[0] == {"role": "system", "content": "System prompt"}
-    assert messages[1] == {"role": "user", "content": "Test prompt"}
+async def test_analyze_image_uninitialized(llm_client):
+    result = await llm_client.analyze_image(image_url="http://example.com/image.jpg")
+    assert "I could not analyze the image due to an error" in result
+    assert "LLM client not initialized" in result
 
 @pytest.mark.asyncio
-async def test_generate_text_with_overrides(llm_client, mock_groq):
-    mock_groq_instance = AsyncMock()
-    mock_response = MagicMock()
-    mock_response.choices = [MagicMock(message=MagicMock(content="Generated text"))]
-    mock_groq_instance.chat.completions.create.return_value = mock_response
-    mock_groq.return_value = mock_groq_instance
-
-    await llm_client.initialize()
-
-    result = await llm_client.generate_text(
-        "Test prompt", temperature=0.5, max_tokens=200
-    )
-    assert result == "Generated text"
-
-    mock_groq_instance.chat.completions.create.assert_called_once()
-    call_kwargs = mock_groq_instance.chat.completions.create.call_args.kwargs
-    assert call_kwargs["temperature"] == 0.5
-    assert call_kwargs["max_tokens"] == 200
-
-@pytest.mark.asyncio
-async def test_generate_text_api_failure(llm_client, mock_groq):
+async def test_analyze_image_api_error(llm_client, mock_groq):
     mock_groq_instance = AsyncMock()
     mock_groq_instance.chat.completions.create.side_effect = Exception("API Error")
     mock_groq.return_value = mock_groq_instance
 
     await llm_client.initialize()
 
-    with pytest.raises(Exception, match="API Error"):
-        await llm_client.generate_text("Test prompt")
+    result = await llm_client.analyze_image(image_url="http://example.com/image.jpg")
+    assert "I could not analyze the image due to an error" in result
+    assert "API Error" in result
 
 @pytest.mark.asyncio
-async def test_generate_text_empty_response(llm_client, mock_groq):
+async def test_analyze_image_custom_prompt(llm_client, mock_groq):
     mock_groq_instance = AsyncMock()
     mock_response = MagicMock()
-    # Content is None
-    mock_response.choices = [MagicMock(message=MagicMock(content=None))]
+    mock_response.choices = [MagicMock(message=MagicMock(content="Description"))]
     mock_groq_instance.chat.completions.create.return_value = mock_response
     mock_groq.return_value = mock_groq_instance
 
     await llm_client.initialize()
 
-    result = await llm_client.generate_text("Test prompt")
-    assert result == ""
+    await llm_client.analyze_image(image_url="http://example.com/image.jpg", prompt="Custom prompt")
+
+    call_kwargs = mock_groq_instance.chat.completions.create.call_args.kwargs
+    content = call_kwargs["messages"][0]["content"]
+    assert content[0]["text"] == "Custom prompt"
+
+@pytest.mark.asyncio
+async def test_analyze_image_custom_mime_type(llm_client, mock_groq):
+    mock_groq_instance = AsyncMock()
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock(message=MagicMock(content="Description"))]
+    mock_groq_instance.chat.completions.create.return_value = mock_response
+    mock_groq.return_value = mock_groq_instance
+
+    await llm_client.initialize()
+
+    image_bytes = b"fake_png_data"
+    await llm_client.analyze_image(image_data=image_bytes, mime_type="image/png")
+
+    call_kwargs = mock_groq_instance.chat.completions.create.call_args.kwargs
+    content = call_kwargs["messages"][0]["content"]
+    assert "data:image/png;base64," in content[1]["image_url"]["url"]
