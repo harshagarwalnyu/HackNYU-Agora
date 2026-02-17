@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
     reload: bool = True
+    backend_cors_origins: list[str] = ["http://localhost:3000", "http://localhost:8000"]
 
     # API Keys
     groq_api_key: str = Field(alias="GROQ_API_KEY")
@@ -78,6 +79,16 @@ class Settings(BaseSettings):
         v.mkdir(parents=True, exist_ok=True)
         logger.debug(f"Storage path validated: {v}")
         return v
+
+    @field_validator("backend_cors_origins", mode="before")
+    @classmethod
+    def assemble_cors_origins(cls, v: Any) -> list[str] | str:
+        """Parse CORS origins from string or list."""
+        if isinstance(v, str) and not v.startswith("["):
+            return [i.strip() for i in v.split(",")]
+        elif isinstance(v, (list, str)):
+            return v
+        raise ValueError(v)
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
