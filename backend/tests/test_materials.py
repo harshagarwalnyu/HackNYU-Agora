@@ -38,85 +38,148 @@ mock_qdrant.QdrantClient = MagicMock()
 mock_groq.AsyncGroq = MagicMock()
 mock_sentence_transformers.SentenceTransformer = MagicMock()
 
+# Mock service instances and initialization before app import
+with patch("app.services.qdrant_client.QdrantService.initialize", AsyncMock()), \
+     patch("app.services.llm_client.LLMClient.initialize", AsyncMock()), \
+     patch("app.services.stt_service.GroqWhisperSTT.initialize", AsyncMock()):
+    # We must also mock edge_tts if it is imported at top level in tts_service
+    # But since we mocked sys.modules['edge_tts'], the import should succeed.
 
-# Now we can safely import the app modules
-# We still need to mock the service instances in app.services.* before app.main imports them
-# But app.main imports app.services.* which instantiates the classes.
-# The instantiation uses the mocked classes above.
-
-# However, the singletons `qdrant_service` and `llm_client` are created at module level.
-# We can just let them be created with the mocked dependencies,
-# OR we can mock the singletons themselves if we want to be sure.
-
-# Let's import the services and mock their methods.
-# Note: Since we mocked the dependencies, the instantiation should succeed (or we might need to handle __init__ logic).
-
-# In app/services/qdrant_client.py:
-# self.client = QdrantClient(...) -> uses our mock
-# In app/services/llm_client.py:
-# self.client = AsyncGroq(...) -> uses our mock
-
-# So we can just import them and then mock the methods on the singletons.
-
-from app.services.qdrant_client import qdrant_service
-from app.services.llm_client import llm_client
-
-qdrant_service.initialize = AsyncMock()
-qdrant_service.close = AsyncMock()
-qdrant_service.upsert_notes = AsyncMock()
-qdrant_service.health_check = AsyncMock(return_value=True)
-
-llm_client.initialize = AsyncMock()
-llm_client.close = AsyncMock()
-llm_client.health_check = AsyncMock(return_value=True)
-llm_client.generate_text = AsyncMock(return_value="Mocked LLM generation")
-
-from fastapi.testclient import TestClient
-from app.main import app
-from app.config import settings
+    from fastapi.testclient import TestClient
+    from app.main import app
+    from app.api.materials import upload_status
+    from app.config import settings
 
 client = TestClient(app)
 
+@pytest.fixture(autouse=True)
+def setup_test_storage(tmp_path):
+    """Setup a temporary storage path for tests."""
+    original_storage_path = settings.storage_path
+    settings.storage_path = tmp_path
+    yield
+    settings.storage_path = original_storage_path
+    # Clear upload_status between tests
+    upload_status.clear()
+
+@pytest.fixture
+def mock_process_document():
+    """Mock the process_document background task."""
+    with patch("app.api.materials.process_document", AsyncMock()) as mock:
+        yield mock
+
 @pytest.mark.asyncio
-async def test_upload_file_too_large(tmp_path):
-    """Test that uploading a file larger than the limit returns 413."""
-    # Set max size to a small value (e.g., 10 bytes)
-    with patch.object(settings, 'upload_max_size', new=10):
-        # Use temporary storage path
-        with patch.object(settings, 'storage_path', new=tmp_path):
-            # Create a file content larger than 10 bytes
-            file_content = b"This is definitely more than 10 bytes."
-            files = {"file": ("large_file.txt", file_content, "text/plain")}
-            data = {"user_id": "test_user", "course_id": "test_course"}
+async def test_upload_materials_success(mock_process_document):
+    """Test successful material upload."""
+    content = b"test content"
+    files = {"file": ("test.txt", content, "text/plain")}
+    data = {"user_id": "user123", "course_id": "course456", "description": "test desc"}
 
-            response = client.post("/api/materials/upload", files=files, data=data)
+    response = client.post("/api/materials/upload", files=files, data=data)
 
-            assert response.status_code == 413
-            assert "File too large" in response.json()["detail"]
+    assert response.status_code == 200
+    json_resp = response.json()
+    assert "job_id" in json_resp
+    job_id = json_resp["job_id"]
+    assert json_resp["status"] == "processing"
 
-@pytest.mark.asyncio
-async def test_upload_file_within_limit(tmp_path):
-    """Test that uploading a valid file returns 200."""
-    # Set max size to a large value
-    with patch.object(settings, 'upload_max_size', new=1024 * 1024):
-        # Use temporary storage path
-        with patch.object(settings, 'storage_path', new=tmp_path):
-            # Mock process_document to avoid actual processing
-            with patch("app.api.materials.process_document", new_callable=AsyncMock) as mock_process:
-                file_content = b"Small file content"
-                files = {"file": ("small_file.txt", file_content, "text/plain")}
-                data = {"user_id": "test_user", "course_id": "test_course"}
+    # Check if status was updated in-memory
+    assert job_id in upload_status
+    assert upload_status[job_id]["user_id"] == "user123"
+    assert upload_status[job_id]["course_id"] == "course456"
 
-                response = client.post("/api/materials/upload", files=files, data=data)
+    # Check if file was saved
+    saved_file_path = settings.storage_path / "user123" / "course456" / f"{job_id}.txt"
+    assert saved_file_path.exists()
+    with open(saved_file_path, "rb") as f:
+        assert f.read() == content
 
-                assert response.status_code == 200
-                json_resp = response.json()
-                assert json_resp["status"] == "processing"
-                assert "job_id" in json_resp
+def test_upload_materials_no_filename():
+    """Test upload with no filename."""
+    files = {"file": ("", b"content", "text/plain")}
+    data = {"user_id": "user123"}
 
-                # Verify file was saved in temp path
-                user_path = tmp_path / "test_user" / "test_course"
-                assert user_path.exists()
-                files = list(user_path.glob("*.txt"))
-                assert len(files) == 1
-                assert files[0].read_bytes() == file_content
+    response = client.post("/api/materials/upload", files=files, data=data)
+    # FastAPI/Starlette might return 422 Unprocessable Entity for invalid file parts
+    # or our code returns 400.
+    assert response.status_code in [400, 422]
+    if response.status_code == 400:
+        assert response.json()["detail"] == "No filename provided"
+
+def test_upload_materials_file_too_large():
+    """Test upload with file exceeding max size."""
+    # We use app.config.settings directly because app.api.materials imports settings from there
+    with patch.object(settings, 'upload_max_size', new=5):
+        files = {"file": ("test.txt", b"too large content", "text/plain")}
+        data = {"user_id": "user123"}
+
+        response = client.post("/api/materials/upload", files=files, data=data)
+        assert response.status_code == 413
+        assert "File too large" in response.json()["detail"]
+
+def test_upload_materials_server_error():
+    """Test server error during upload."""
+    with patch("app.api.materials.open", side_effect=Exception("Disk full")):
+        files = {"file": ("test.txt", b"content", "text/plain")}
+        data = {"user_id": "user123"}
+
+        response = client.post("/api/materials/upload", files=files, data=data)
+        assert response.status_code == 500
+        assert "Upload failed" in response.json()["detail"]
+
+def test_get_upload_status_success():
+    """Test getting upload status for an existing job."""
+    job_id = "test-job-123"
+    upload_status[job_id] = {
+        "job_id": job_id,
+        "status": "completed",
+        "progress": 100,
+        "message": "Processing complete",
+        "user_id": "user1",
+        "course_id": "course1"
+    }
+
+    response = client.get(f"/api/materials/status/{job_id}")
+    assert response.status_code == 200
+    assert response.json() == upload_status[job_id]
+
+def test_get_upload_status_not_found():
+    """Test getting status for a non-existent job."""
+    response = client.get("/api/materials/status/non-existent-job")
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Job not found"
+
+def test_list_materials_success():
+    """Test listing materials for a user."""
+    upload_status["job1"] = {"job_id": "job1", "user_id": "user1", "course_id": "course1", "status": "completed"}
+    upload_status["job2"] = {"job_id": "job2", "user_id": "user1", "course_id": "course2", "status": "processing"}
+    upload_status["job3"] = {"job_id": "job3", "user_id": "user2", "course_id": "course1", "status": "completed"}
+
+    response = client.get("/api/materials/list?user_id=user1")
+    assert response.status_code == 200
+    json_resp = response.json()
+    assert json_resp["count"] == 2
+    assert len(json_resp["materials"]) == 2
+    job_ids = [m["job_id"] for m in json_resp["materials"]]
+    assert "job1" in job_ids
+    assert "job2" in job_ids
+    assert "job3" not in job_ids
+
+def test_list_materials_with_course_filter():
+    """Test listing materials with course filter."""
+    upload_status["job1"] = {"job_id": "job1", "user_id": "user1", "course_id": "course1", "status": "completed"}
+    upload_status["job2"] = {"job_id": "job2", "user_id": "user1", "course_id": "course2", "status": "processing"}
+
+    response = client.get("/api/materials/list?user_id=user1&course_id=course1")
+    assert response.status_code == 200
+    json_resp = response.json()
+    assert json_resp["count"] == 1
+    assert json_resp["materials"][0]["job_id"] == "job1"
+
+def test_list_materials_empty():
+    """Test listing materials when none exist for user."""
+    response = client.get("/api/materials/list?user_id=unknown")
+    assert response.status_code == 200
+    json_resp = response.json()
+    assert json_resp["count"] == 0
+    assert json_resp["materials"] == []
