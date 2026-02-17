@@ -5,6 +5,7 @@ Parses PDFs, images, and other documents, chunks them, generates embeddings, and
 
 import logging
 import asyncio
+import uuid
 from pathlib import Path
 from typing import Callable, List, Optional
 
