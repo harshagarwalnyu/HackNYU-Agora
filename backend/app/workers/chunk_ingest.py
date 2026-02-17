@@ -4,6 +4,7 @@ Parses PDFs, images, and other documents, chunks them, generates embeddings, and
 """
 
 import logging
+import asyncio
 from pathlib import Path
 from typing import Callable, List, Optional, cast
 
@@ -169,7 +170,8 @@ async def parse_with_docling(file_path: str) -> str:
 
         # Convert document
         logger.debug("Converting document...")
-        result = converter.convert(file_path)
+        loop = asyncio.get_running_loop()
+        result = await loop.run_in_executor(None, converter.convert, file_path)
 
         logger.debug("Document converted", extra={"has_result": result is not None})
 
