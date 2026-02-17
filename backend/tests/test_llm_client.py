@@ -90,6 +90,9 @@ async def test_health_check_success(llm_client, mock_groq):
     assert await llm_client.health_check() is True
 
     mock_groq_instance.chat.completions.create.assert_called_once()
+    call_kwargs = mock_groq_instance.chat.completions.create.call_args.kwargs
+    assert call_kwargs["messages"] == [{"role": "user", "content": "ping"}]
+    assert call_kwargs["max_tokens"] == 1
 
 @pytest.mark.asyncio
 async def test_health_check_failure(llm_client, mock_groq):
@@ -122,6 +125,9 @@ async def test_generate_text_success(llm_client, mock_groq):
     call_kwargs = mock_groq_instance.chat.completions.create.call_args.kwargs
     assert call_kwargs["messages"] == [{"role": "user", "content": "Test prompt"}]
     assert call_kwargs["model"] == "test_model"
+    # Ensure defaults from settings are used
+    assert call_kwargs["temperature"] == 0.7
+    assert call_kwargs["max_tokens"] == 100
 
 @pytest.mark.asyncio
 async def test_generate_text_uninitialized(llm_client):
@@ -171,6 +177,16 @@ async def test_embed_text_success(llm_client, mock_sentence_transformer):
     # this might be flaky if we don't wait?
     # run_in_executor awaits the completion, so it should be fine.
     mock_st_instance.encode.assert_called_with("Test text")
+
+@pytest.mark.asyncio
+async def test_embed_text_failure(llm_client, mock_sentence_transformer):
+    mock_st_instance = mock_sentence_transformer.return_value
+    mock_st_instance.encode.side_effect = Exception("Encoding error")
+
+    await llm_client.initialize()
+
+    with pytest.raises(Exception, match="Encoding error"):
+        await llm_client.embed_text("Test text")
 
 @pytest.mark.asyncio
 async def test_embed_text_uninitialized(llm_client):
