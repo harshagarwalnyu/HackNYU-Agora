@@ -1,0 +1,64 @@
+services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: agora-qdrant
+    ports:
+      - "6333:6333" # HTTP API
+      - "6334:6334" # gRPC
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    environment:
+      - QDRANT__SERVICE__GRPC_PORT=6334
+    restart: unless-stopped
+    networks:
+      - agora-network
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: agora-backend
+    env_file:
+      - .env
+    environment:
+      # Defaults are overridden by .env if present
+      - QDRANT_URL=http://qdrant:6333
+      - HOST=0.0.0.0
+      - PORT=8000
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - qdrant
+    restart: unless-stopped
+    networks:
+      - agora-network
+
+  frontend:
+    build:
+      context: ./frontendOther
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-http://localhost:8000}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    container_name: agora-frontend
+    environment:
+      - NEXT_PUBLIC_WS_URL=${NEXT_PUBLIC_WS_URL:-http://localhost:8000}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - agora-network
+
+networks:
+  agora-network:
+    driver: bridge
+
+volumes:
+  qdrant_storage:
+    driver: local
