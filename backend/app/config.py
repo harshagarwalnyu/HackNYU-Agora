@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     # Application
     app_name: str = "Agora Backend"
     app_version: str = "0.2.0-SOTA"
-    debug: bool = True
+    debug: bool = False
     log_level: str = "DEBUG"
     log_file: str | None = Field(default=None, description="Path to log file")
 
