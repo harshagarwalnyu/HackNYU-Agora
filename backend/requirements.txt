@@ -40,4 +40,4 @@ numpy<2
 python-json-logger==2.0.7
 
 # Search
-ddgs>=9.10.0
+lxml>=4.9.0
