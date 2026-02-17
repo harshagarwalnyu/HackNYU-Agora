@@ -18,6 +18,11 @@ export function RecorderButton({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
+  const onAudioSubmitRef = useRef(onAudioSubmit);
+
+  useEffect(() => {
+    onAudioSubmitRef.current = onAudioSubmit;
+  }, [onAudioSubmit]);
 
   useEffect(() => {
     const initRecorder = async () => {
@@ -49,7 +54,7 @@ export function RecorderButton({
           // Groq requires >0.01s of audio. 
           // 1KB is a safe lower bound for a valid webm file with header and some audio.
           if (blob.size > 1024) {
-            onAudioSubmit(blob);
+            onAudioSubmitRef.current(blob);
           } else {
             console.warn('[RecorderButton] Audio segment too short, discarding.', blob.size);
           }
@@ -68,7 +73,7 @@ export function RecorderButton({
         streamRef.current.getTracks().forEach((track) => track.stop());
       }
     };
-  }, [onAudioSubmit]);
+  }, []);
 
   const handlePointerDown = () => {
     if (disabled || isProcessing) return;

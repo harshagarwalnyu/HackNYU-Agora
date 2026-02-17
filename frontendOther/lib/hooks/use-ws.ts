@@ -10,7 +10,7 @@ export function useWebSocket() {
   const { userId, sessionId, initSession, currentTopic } = useSessionStore();
   const { addMessage, setLoading } = useMessageStore();
 
-  // FIX: Define stable callbacks using useCallback
+  // Define stable callbacks using useCallback
   // This ensures they have a stable reference and can be added/removed.
   // We use getState() inside to avoid adding store functions as dependencies.
 
@@ -143,9 +143,7 @@ export function useWebSocket() {
     };
     // We only want this effect to run when the session IDs change, not when
     // state setters from Zustand change.
-  }, [userId, sessionId, currentTopic,
-    onSessionInitialized, onTranscript, onAudioResponse, onVisual,
-    onSessionStatus, onConnectionStatus, onError, onConnect]);
+  }, [userId, sessionId]);
 
 
   const interrupt = useCallback(() => {
