@@ -58,8 +58,17 @@ Thumbs.db
 *.log
 logs/
 
+# Pytest artifacts
+pytest_out*.txt
+.pytest_cache/
+
+# Build artifacts and temporary files
+*.txt
+!docs/**/*.txt
+
 # Storage (your uploaded files)
 backend/backend/storage/
+backend/storage/
 
 # Temporary files
 *.tmp
@@ -72,3 +81,43 @@ demoVid.mp4
 
 # Local Virtual Environments
 backend/.venv/
+.venv/
+venv/
+
+# Python tooling caches
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# AI and IDE Metadata
+.cursor/
+.Jules/
+.agent/
+.gemini/
+
+# Binaries and Large Media
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.pdf
+*.ico
+*.mp4
+*.webm
+*.zip
+*.tar.gz
+*.exe
+*.bin
+*.pkl
+*.h5
+*.onnx
+*.weights
+*.model
+
+# Database
+backend/database.db
+*.db
+*.sqlite
+*.sqlite3

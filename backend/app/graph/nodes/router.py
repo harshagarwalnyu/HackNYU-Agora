@@ -4,6 +4,7 @@ Uses Gemini to analyze intent and route appropriately.
 """
 
 import logging
+from typing import Callable
 
 from app.graph.state import RoutingDecision, TutorState, get_conversation_context
 from app.services.llm_client import llm_client
@@ -82,27 +83,8 @@ Classification:"""
 
         logger.debug("Raw classification result", extra={"classification": classification})
 
-        # Parse classification
-        routing = None
-        if "NEW_QUESTION" in classification:
-            routing = RoutingDecision.NEW_QUESTION
-        elif "ANSWER_TO_MY_QUESTION" in classification:
-            routing = RoutingDecision.ANSWER_TO_MY_QUESTION
-        elif "FRUSTRATED" in classification or "FRUSTRATION" in classification:
-            routing = RoutingDecision.FRUSTRATED_INTERRUPTION
-            state["frustration_level"] = min(state["frustration_level"] + 1, 5)
-            logger.info(
-                "Frustration detected", extra={"frustration_level": state["frustration_level"]}
-            )
-        elif "VISUAL" in classification or "REQUEST_FOR_VISUAL" in classification:
-            routing = RoutingDecision.REQUEST_FOR_VISUAL
-        elif "QUIZ" in classification:
-            routing = RoutingDecision.QUIZ_ME
-        else:
-            logger.warning(f"Unknown classification: {classification}, defaulting to NEW_QUESTION")
-            routing = RoutingDecision.NEW_QUESTION
-
-        state["routing"] = routing
+        # Parse classification using dispatch table
+        routing = _classify_routing(classification, state)
 
         logger.info(
             "Routing decision made",
@@ -134,6 +116,47 @@ Classification:"""
         state["error"] = f"Router error: {str(e)}"
 
         return state
+
+
+def _classify_routing(classification: str, state: TutorState) -> RoutingDecision:
+    """
+    Map classification keywords to routing decisions using dispatch table.
+    
+    Args:
+        classification: LLM classification result (uppercase)
+        state: Current tutor state (modified if frustration detected)
+    
+    Returns:
+        RoutingDecision routing choice
+    """
+    # Dispatch table: pattern matchers and their corresponding decisions
+    dispatch_map: dict[str, Callable[[], RoutingDecision]] = {
+        "NEW_QUESTION": lambda: RoutingDecision.NEW_QUESTION,
+        "ANSWER_TO_MY_QUESTION": lambda: RoutingDecision.ANSWER_TO_MY_QUESTION,
+        "FRUSTRATED": lambda: _handle_frustration(state),
+        "FRUSTRATION": lambda: _handle_frustration(state),
+        "VISUAL": lambda: RoutingDecision.REQUEST_FOR_VISUAL,
+        "REQUEST_FOR_VISUAL": lambda: RoutingDecision.REQUEST_FOR_VISUAL,
+        "QUIZ": lambda: RoutingDecision.QUIZ_ME,
+    }
+    
+    # Find first matching pattern
+    for pattern, handler in dispatch_map.items():
+        if pattern in classification:
+            return handler()
+    
+    # Default fallback
+    logger.warning(f"Unknown classification: {classification}, defaulting to NEW_QUESTION")
+    return RoutingDecision.NEW_QUESTION
+
+
+def _handle_frustration(state: TutorState) -> RoutingDecision:
+    """Handle frustration detection and state update."""
+    state["frustration_level"] = min(state["frustration_level"] + 1, 5)
+    logger.info(
+        "Frustration detected", extra={"frustration_level": state["frustration_level"]}
+    )
+    return RoutingDecision.FRUSTRATED_INTERRUPTION
 
 
 logger.debug("Router node module loaded")

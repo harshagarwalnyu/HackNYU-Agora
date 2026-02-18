@@ -1,21 +1,4 @@
-import sys
-from unittest.mock import MagicMock
-
-# Create mocks for dependencies
-mock_llm_client_module = MagicMock()
-mock_llm_client_instance = MagicMock()
-mock_llm_client_module.llm_client = mock_llm_client_instance
-
-mock_qdrant_service_module = MagicMock()
-mock_qdrant_service_instance = MagicMock()
-mock_qdrant_service_module.qdrant_service = mock_qdrant_service_instance
-
-# Apply mocks to sys.modules
-sys.modules["app.services.llm_client"] = mock_llm_client_module
-sys.modules["app.services.qdrant_client"] = mock_qdrant_service_module
-
-# Now import the function to test
-from app.workers.chunk_ingest import chunk_text
+from app.text_processing import chunk_text
 
 def test_chunk_text_empty():
     """Test chunking with empty text."""

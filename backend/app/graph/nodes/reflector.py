@@ -26,45 +26,46 @@ If it needs improvement, REWRITE it to be better.
 Return ONLY the rewritten response, or the word "GOOD".
 """
 
+
 async def reflector_node(state: TutorState) -> TutorState:
     """
     Review and potentially rewrite the tutor's response.
-    
+
     Args:
         state: Current tutor state
-        
+
     Returns:
         Updated state with potentially improved response
     """
     try:
         logger.debug("=== REFLECTOR NODE START ===")
-        
+
         response_text = state.get("response_text", "")
         if not response_text:
             return state
-            
+
         user_text = state.get("last_user_text", "")
-        
+
         # lightweight check - maybe skip for very short responses
         if len(response_text) < 20:
             return state
 
         logger.debug("Reflecting on response...", extra={"original_length": len(response_text)})
-        
+
         prompt = REFLECTION_PROMPT.format(user_text=user_text, response_text=response_text)
-        
+
         critique = await llm_client.generate_text(
             prompt=prompt,
-            temperature=0.3, # Low temp for critical evaluation
-            max_tokens=1024
+            temperature=0.3,  # Low temp for critical evaluation
+            max_tokens=1024,
         )
-        
+
         if critique.strip().upper() == "GOOD":
             logger.info("Reflection passed: Response is good.")
         else:
             logger.info("Reflection active: Rewriting response.")
             state["response_text"] = critique.strip()
-            
+
         logger.debug("=== REFLECTOR NODE END ===")
         return state
 

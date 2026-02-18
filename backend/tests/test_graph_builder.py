@@ -1,6 +1,5 @@
-import pytest
 from app.graph.builder import routing_decision
-from app.graph.state import RoutingDecision, TutorState, create_initial_state
+from app.graph.state import RoutingDecision, create_initial_state
 
 def test_routing_decision_quiz():
     """Test that routing_decision returns 'quiz' when routing is QUIZ_ME."""

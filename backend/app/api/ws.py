@@ -10,7 +10,6 @@ import uuid
 import asyncio
 
 import socketio
-from fastapi import APIRouter
 
 from app.config import settings
 from app.graph.state import create_initial_state, TutorState
@@ -19,17 +18,17 @@ from app.services.stt_service import get_global_stt
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
-
 # Create Socket.IO server
 # Note: python-socketio 5.x uses Engine.IO 5.x protocol
 # Client must use socket.io-client 4.x or 5.x compatible version
 # Configure allowed origins, ensuring no wildcard access
-allowed_origins = settings.backend_cors_origins
+allowed_origins: list[str] | None = settings.backend_cors_origins
 
 # Handle potential None or wildcard
 if allowed_origins and "*" in allowed_origins:
-    logger.warning("Wildcard CORS origin '*' found in settings. Removing it for WebSocket security.")
+    logger.warning(
+        "Wildcard CORS origin '*' found in settings. Removing it for WebSocket security."
+    )
     allowed_origins = [origin for origin in allowed_origins if origin != "*"]
 
 # If allowed_origins is empty (either initially or after filtering),
@@ -101,7 +100,7 @@ async def disconnect(sid: str) -> None:
 async def interrupt(sid: str, data: Dict[str, Any]) -> None:
     """Handle interruption signal (stop generating/speaking)."""
     logger.info("Interruption signal received", extra={"sid": sid})
-    
+
     if sid in active_tasks:
         task = active_tasks[sid]
         task.cancel()
@@ -224,7 +223,7 @@ async def audio_input(sid: str, data: Dict[str, Any]) -> None:
             )
         )
         active_tasks[sid] = task
-        
+
         try:
             await task
         except asyncio.CancelledError:
@@ -280,7 +279,7 @@ async def text_input(sid: str, data: Dict[str, Any]) -> None:
             process_and_respond(sid=sid, state=state, user_text=text_content, audio_format=None)
         )
         active_tasks[sid] = task
-        
+
         try:
             await task
         except asyncio.CancelledError:
@@ -367,11 +366,9 @@ async def process_and_respond(
                 logger.debug("Visual action sent", extra={"sid": sid, "action": action["action"]})
 
         # Send audio if available
-        if result_state.get("audio_data"):
-            audio_data = result_state["audio_data"]
-            if audio_data is not None:
-                audio_b64 = base64.b64encode(audio_data).decode()
-
+        audio_data = result_state.get("audio_data")
+        if audio_data:
+            audio_b64 = base64.b64encode(audio_data).decode()
             await sio.emit(
                 "audio_response",
                 {
@@ -381,7 +378,6 @@ async def process_and_respond(
                 },
                 to=sid,
             )
-
             logger.info(
                 "Audio response sent",
                 extra={"sid": sid, "audio_size": len(result_state.get("audio_data") or b"")},

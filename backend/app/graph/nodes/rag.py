@@ -3,14 +3,13 @@ RAG Node - Retrieves relevant context from student notes.
 Uses embeddings and Qdrant vector search.
 """
 
-import asyncio
 import logging
 
 from app.config import settings
 from app.graph.state import RAGContext, RoutingDecision, TutorState
 from app.services.llm_client import llm_client
 from app.services.qdrant_client import qdrant_service
-from app.utils.web_search import search_duckduckgo
+from app.web_search import search_duckduckgo
 
 logger = logging.getLogger(__name__)
 
@@ -86,7 +85,7 @@ async def rag_node(state: TutorState) -> TutorState:
 
         # Fallback: Web Search if results are poor
         top_score = search_results[0]["score"] if search_results else 0.0
-        
+
         if top_score < settings.rag_similarity_threshold:
             logger.info(
                 f"Low RAG score ({top_score:.2f}). Initiating Web Search via DuckDuckGo...",
@@ -96,14 +95,15 @@ async def rag_node(state: TutorState) -> TutorState:
             try:
                 # Perform async web search
                 raw_results = await search_duckduckgo(query_text)
-                
-                web_results = []
-                for res in raw_results:
-                    web_results.append({
+
+                web_results = [
+                    {
                         "text": f"[WEB SOURCE: {res['title']}] {res['body']}",
-                        "score": 0.9, # Assign high confidence to fresh web results
-                        "metadata": {"source": "web_search", "url": res["href"]}
-                    })
+                        "score": 0.9,
+                        "metadata": {"source": "web_search", "url": res["href"]},
+                    }
+                    for res in raw_results
+                ]
 
                 if web_results:
                     logger.info(f"Found {len(web_results)} web results")
@@ -111,7 +111,7 @@ async def rag_node(state: TutorState) -> TutorState:
                     search_results.extend(web_results)
                 else:
                     logger.warning("Web search returned no results")
-                    
+
             except Exception as e:
                 logger.error(f"Async web search execution failed: {e}", exc_info=True)
                 # Fallback mock if web search fails completely
@@ -119,7 +119,7 @@ async def rag_node(state: TutorState) -> TutorState:
                     {
                         "text": f"[WEB SEARCH FAILED] Could not retrieve external information for '{query_text}'.",
                         "score": 0.1,
-                        "metadata": {"source": "system_error", "url": "#"}
+                        "metadata": {"source": "system_error", "url": "#"},
                     }
                 ]
                 search_results.extend(web_results)

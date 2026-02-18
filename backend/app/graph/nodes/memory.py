@@ -208,28 +208,28 @@ Analyze this conversation:"""
         try:
             import json
             from pathlib import Path
-            
+
             kg_path = Path("backend/storage/user_knowledge_graph.json")
             existing_kg = []
             if kg_path.exists():
                 with open(kg_path, "r") as f:
                     existing_kg = json.load(f)
-            
+
             # Merge new KG updates
             new_concepts = memory_json.get("knowledge_graph", [])
-            
+
             # Simple merge strategy: update if exists, append if new
             kg_dict = {item["concept"]: item for item in existing_kg}
             for item in new_concepts:
                 kg_dict[item["concept"]] = item
-            
+
             final_kg = list(kg_dict.values())
-            
+
             with open(kg_path, "w") as f:
                 json.dump(final_kg, f, indent=2)
-                
+
             logger.info("Knowledge Graph saved", extra={"concepts_count": len(final_kg)})
-            
+
         except Exception:
             logger.error("Failed to save Knowledge Graph", exc_info=True)
 

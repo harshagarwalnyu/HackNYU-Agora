@@ -1,5 +1,3 @@
-
-import sys
 import asyncio
 import time
 import os
@@ -9,16 +7,7 @@ import pytest
 # Set placeholder API key to pass Settings validation during import
 os.environ["GROQ_API_KEY"] = "mock_key"
 
-# Mock heavy dependencies in sys.modules to avoid installation issues and speed up tests
-# This must happen BEFORE importing app modules that use them
-sys.modules["groq"] = MagicMock()
-sys.modules["groq.types"] = MagicMock()
-sys.modules["groq.types.chat"] = MagicMock()
-sys.modules["sentence_transformers"] = MagicMock()
-sys.modules["torch"] = MagicMock()
-sys.modules["numpy"] = MagicMock()
-
-# Import LLMClient after mocking
+# Import LLMClient
 from app.services.llm_client import LLMClient
 
 @pytest.fixture

@@ -61,6 +61,38 @@ class MemorySummary(TypedDict):
     last_updated: float
 
 
+class VisualExtractionResult(TypedDict):
+    """Result from extracting visual actions from response text."""
+
+    cleaned_text: str
+    actions: List[VisualAction]
+
+
+class ChunkMetadata(TypedDict):
+    """Metadata for a document chunk."""
+
+    source_file: str
+    chunk_index: int
+    job_id: str
+
+
+class ErrorContext(TypedDict):
+    """Standardized error context information."""
+
+    error: str
+    error_type: str
+    context: Dict[str, Any]
+
+
+class DocumentChunk(TypedDict):
+    """A chunked portion of a document with embedding."""
+
+    id: str
+    text: str
+    embedding: List[float]
+    metadata: ChunkMetadata
+
+
 class TutorState(TypedDict):
     """
     Complete state for the Agora tutor LangGraph.
@@ -202,11 +234,10 @@ def get_conversation_context(state: TutorState, max_turns: int = 10) -> str:
     """
     recent_messages = state["messages"][-max_turns * 2 :] if max_turns else state["messages"]
 
-    context_lines = []
-    for msg in recent_messages:
-        role = "Student" if msg["role"] == "student" else "Tutor"
-        context_lines.append(f"{role}: {msg['content']}")
-
+    context_lines = [
+        f"{'Student' if msg['role'] == 'student' else 'Tutor'}: {msg['content']}"
+        for msg in recent_messages
+    ]
     context = "\n".join(context_lines)
 
     logger.debug(

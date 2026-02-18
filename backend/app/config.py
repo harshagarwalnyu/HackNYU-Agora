@@ -12,6 +12,14 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger(__name__)
 
+# Document file type extensions for parsing
+IMAGE_EXTENSIONS: set[str] = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"}
+TEXT_EXTENSIONS: set[str] = {".txt", ".md", ".markdown"}
+DOCUMENT_EXTENSIONS: set[str] = {".pdf"}
+
+# All supported document types
+SUPPORTED_FILE_EXTENSIONS: set[str] = IMAGE_EXTENSIONS | TEXT_EXTENSIONS | DOCUMENT_EXTENSIONS
+
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
@@ -78,6 +86,12 @@ class Settings(BaseSettings):
     enable_frustration_monitor: bool = True
     enable_self_explanation: bool = False  # Advanced feature
 
+    # Document Processing
+    chunk_size: int = 512  # Chunk size for text processing
+    chunk_overlap: int = 50  # Overlap between chunks
+    rag_context_limit: int = 3  # Max number of RAG context items to include
+    embedding_progress_step: int = 60  # Report embedding progress every N items
+
     # RAG Configuration
     rag_generic_queries: List[str] = [
         "what is in that pdf",
@@ -109,7 +123,13 @@ class Settings(BaseSettings):
         logger.debug(f"Storage path validated: {v}")
         return v
 
-
+    @field_validator("groq_api_key", mode="after")
+    @classmethod
+    def strip_quotes_from_key(cls, v: str) -> str:
+        """Strip potential quotes from the API key string."""
+        if v:
+            return v.strip("'\"")
+        return v
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)

@@ -7,12 +7,12 @@ import logging
 import uuid
 from pathlib import Path
 
-from typing import Optional
+from typing import Any, Optional
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 
-from app.config import settings
-from app.workers.chunk_ingest import process_document
+from app.config import settings, SUPPORTED_FILE_EXTENSIONS
+from app.chunk_ingest import process_document
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +20,7 @@ router = APIRouter()
 
 
 # In-memory upload status tracking (use Redis/DB in production)
-upload_status = {}
+upload_status: dict[str, dict[str, Any]] = {}
 
 
 def cleanup_upload_status() -> None:
@@ -48,13 +48,13 @@ async def upload_materials(
 ) -> JSONResponse:
     """
     Upload study materials for processing.
-    
+
     Args:
         file: Uploaded file (PDF, PPT, image, etc.)
         user_id: User identifier
         course_id: Course/topic identifier
         description: Optional description
-        
+
     Returns:
         Upload status with job_id
     """
@@ -105,6 +105,21 @@ async def upload_materials(
         # Save file to storage
         file_ext = Path(file.filename).suffix
 
+        # Security: Validate file extension
+        if file_ext.lower() not in SUPPORTED_FILE_EXTENSIONS:
+            logger.warning(
+                "Unsupported file type rejected",
+                extra={
+                    "filename": file.filename,
+                    "extension": file_ext,
+                    "supported": list(SUPPORTED_FILE_EXTENSIONS),
+                },
+            )
+            raise HTTPException(
+                status_code=415,
+                detail=f"Unsupported file type: {file_ext}. Supported: {', '.join(SUPPORTED_FILE_EXTENSIONS)}",
+            )
+
         # Security check: Ensure we don't write outside storage path
         try:
             base_storage_path = settings.storage_path.resolve()
@@ -113,16 +128,14 @@ async def upload_materials(
             if not storage_path.is_relative_to(base_storage_path):
                 logger.warning(
                     "Path traversal attempt blocked",
-                    extra={"user_id": user_id, "course_id": course_id, "path": str(storage_path)}
+                    extra={"user_id": user_id, "course_id": course_id, "path": str(storage_path)},
                 )
                 raise HTTPException(status_code=403, detail="Invalid path traversal detected")
         except HTTPException:
             raise
         except Exception as e:
             logger.error(
-                "Path resolution failed",
-                extra={"error": str(e), "user_id": user_id},
-                exc_info=True
+                "Path resolution failed", extra={"error": str(e), "user_id": user_id}, exc_info=True
             )
             raise HTTPException(status_code=400, detail="Invalid path components")
 
@@ -226,10 +239,10 @@ async def upload_materials(
 async def get_upload_status(job_id: str) -> JSONResponse:
     """
     Get the status of an upload job.
-    
+
     Args:
         job_id: Job identifier
-        
+
     Returns:
         Job status information
     """
@@ -251,7 +264,11 @@ async def get_upload_status(job_id: str) -> JSONResponse:
             },
         )
 
-        return JSONResponse(content=status)
+        # Short cache for status polling (stale-while-revalidate acceptable)
+        return JSONResponse(
+            content=status,
+            headers={"Cache-Control": "private, max-age=5"},
+        )
 
     except HTTPException:
         raise
@@ -269,11 +286,11 @@ async def get_upload_status(job_id: str) -> JSONResponse:
 async def list_materials(user_id: str, course_id: Optional[str] = None) -> JSONResponse:
     """
     List uploaded materials for a user.
-    
+
     Args:
         user_id: User identifier
         course_id: Optional course filter
-        
+
     Returns:
         List of materials
     """
@@ -293,7 +310,11 @@ async def list_materials(user_id: str, course_id: Optional[str] = None) -> JSONR
             extra={"user_id": user_id, "course_id": course_id, "count": len(user_uploads)},
         )
 
-        return JSONResponse(content={"materials": user_uploads, "count": len(user_uploads)})
+        # Read-heavy list; cache 1 min to reduce server load
+        return JSONResponse(
+            content={"materials": user_uploads, "count": len(user_uploads)},
+            headers={"Cache-Control": "private, max-age=60"},
+        )
 
     except Exception as e:
         logger.error(

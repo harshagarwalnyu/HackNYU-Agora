@@ -1,43 +1,9 @@
-
-import sys
-import os
 import pytest
-from unittest.mock import MagicMock, AsyncMock, patch
+import os
+from unittest.mock import AsyncMock, patch
 
 # Set environment variable for Settings
 os.environ["GROQ_API_KEY"] = "mock_key"
-
-# -----------------------------------------------------------------------------
-# 1. Mock heavy/missing dependencies in sys.modules BEFORE importing app modules
-# -----------------------------------------------------------------------------
-
-def mock_module(name):
-    if name in sys.modules:
-        return sys.modules[name]
-    mock = MagicMock()
-    sys.modules[name] = mock
-    return mock
-
-# Mock external services and libraries
-mock_groq = mock_module("groq")
-mock_groq.AsyncGroq = MagicMock()
-
-mock_groq_types = mock_module("groq.types")
-mock_groq_chat = mock_module("groq.types.chat")
-
-mock_st = mock_module("sentence_transformers")
-mock_st.SentenceTransformer = MagicMock()
-mock_module("torch")
-mock_module("numpy")
-mock_module("docling")
-mock_module("docling.document_converter")
-mock_qdrant = mock_module("qdrant_client")
-mock_qdrant.AsyncQdrantClient = MagicMock()
-mock_module("qdrant_client.http")
-mock_module("qdrant_client.http.models")
-mock_module("qdrant_client.http.exceptions")
-mock_module("edge_tts")
-mock_module("app.api.ws")
 
 # -----------------------------------------------------------------------------
 # 2. Import app modules
