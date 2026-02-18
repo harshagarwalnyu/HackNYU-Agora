@@ -1,62 +1,65 @@
 <div align="center">
 
-# 🏛️ Agora: The Future of Socratic Learning
+# 🏛️ Agora
+
+**The Future of Socratic Learning — Voice‑First & Retrieval‑Augmented.**
 
 [![Next.js](https://img.shields.io/badge/Next.js-15-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-Framework-009688?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com/)
 [![Groq](https://img.shields.io/badge/Groq-Llama%203.3-orange?style=for-the-badge)](https://groq.com/)
 [![Qdrant](https://img.shields.io/badge/Qdrant-Vector%20DB-red?style=for-the-badge)](https://qdrant.tech/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 
-**Agora is not just a tutor; it is a technical marvel in multimodal education.**
-
-[Setup Guide](#🚀-setup-guide) • [Architecture](#🏗️-the-architecture) • [Features](#💎-features)
+[Features](#💎-features) • [Architecture](#🏗️-architecture) • [Getting Started](#🚀-getting-started) • [Tech Stack](#🛠️-tech-stack) • [Contributing](#🤝-contributing)
 
 </div>
 
 ---
 
-## 🔥 The Vision: Why Agora?
+## 📖 Introduction
 
-Agora represents the **Apex of Agentic Education**. Most AI tutors give you the answer; Agora forces you to think. By combining State-of-the-Art (SOTA) LLMs with high-fidelity voice interfaces and a collaborative whiteboard, we've created a learning environment that feels less like a chatbox and more like a private session with a world-class scholar.
+Agora is the **Apex of Agentic Education**. It moves beyond standard "instructional" AI to provide a true Socratic tutoring experience. By combining State-of-the-Art (SOTA) LLMs with high-fidelity voice interfaces and a collaborative whiteboard, Agora creates a learning environment that monitors student frustration and provides targeted, retrieval-augmented guidance.
 
-### 💎 The "Glaze": Why This Repo is SOTA
-*   **Zero-Latency Voice Loop**: Leveraging **Groq's Whisper** (STT) and **Edge TTS**, Agora achieves near-human response times in voice interactions.
-*   **Retrieval-Augmented Reasoning**: Unlike generic LLMs, Agora is powered by **Qdrant**. It doesn't just "chat"—it references your specific materials (PDFs, Images, Notes) with surgical precision.
-*   **Socratic State Machine**: Built on **LangGraph**, the backend manages complex pedagogical states, ensuring the tutor adapts its tone, frustration level, and quiz intensity in real-time.
-*   **The Shared Canvas**: A custom **Socket.IO** integration with **Tldraw** allows the AI to literally *draw* concepts on your screen as it explains them.
+## 💎 Features
+
+*   **🎙️ Zero-Latency Voice Loop**: leverages **Groq's Whisper** (STT) and **Edge TTS** for near-instant human-like verbal interaction.
+*   **🧠 Socratic Reasoning Engine**: Powered by **LangGraph**, the backend manages pedagogy states, ensuring the tutor prompts the student to think rather than just giving answers.
+*   **📚 Retrieval-Augmented Generation (RAG)**: Integrates with **Qdrant** to provide contextually relevant responses based on *your* uploaded materials (PDFs, Images, Notes).
+*   **🎨 Collaborative Whiteboard**: Real-time integration with **Tldraw** via **Socket.IO** allowing the AI to draw and highlight concepts synchronously with the student.
+*   **⚡ High-Performance Parsing**: Uses **Docling** for deep document structure extraction from complex PDFs and images.
 
 ---
 
-## 🏗️ The Architecture
+## 🏗️ Architecture
 
 ```mermaid
 graph TD
-    User((User)) <--> |Voice/WebSocket| FE[Next.js Frontend]
+    User((User)) <--> |Voice/WS| FE[Next.js Frontend]
     FE <--> |Socket.IO| BE[FastAPI Backend]
-    BE --> |STT/LLM| Groq[Groq Cloud]
-    BE --> |RAG| Qdrant[(Qdrant Vector DB)]
-    BE --> |TTS| Edge[Edge TTS]
-    BE --> |Parsing| Docling[Docling Engine]
+    subgraph Services
+        BE --> |STT/LLM| Groq[Groq Cloud]
+        BE --> |RAG| Qdrant[(Qdrant Vector DB)]
+        BE --> |TTS| Edge[Edge TTS]
+        BE --> |Parsing| Docling[Docling Engine]
+    end
 ```
 
 ---
 
-## 🚀 Setup Guide
+## 🚀 Getting Started
 
-This guide explains how to download, configure, and run the Agora project from the [GitHub repository](https://github.com/harshagarwalnyu/HackNYU-Agora).
+Follow these instructions to set up your local development environment.
 
 ### 📋 Prerequisites
-
-Before starting, ensure you have the following installed:
 
 - **Git**: [Download Git](https://git-scm.com/)
 - **Python 3.12+**: [Download Python](https://www.python.org/)
 - **Node.js 20+**: [Download Node.js](https://nodejs.org/)
-- **pnpm**: Install via `npm install -g pnpm`
-- **Docker**: [Download Docker Desktop](https://www.docker.com/) (Used for the Qdrant vector database)
-- **UV (Recommended)**: For faster Python dependency management. Install via `pip install uv`.
+- **pnpm**: `npm install -g pnpm`
+- **Docker**: [Download Docker](https://www.docker.com/) (Required for Qdrant)
+- **UV**: For high-speed Python dependency management. Install via `pip install uv`.
 
-### 1. Clone the Repository
+### 1. Clone & Install
 
 ```powershell
 git clone https://github.com/harshagarwalnyu/HackNYU-Agora.git
@@ -65,63 +68,47 @@ cd HackNYU-Agora
 
 ### 2. Environment Configuration
 
-You must provide API keys for the backend to function.
+1.  **Backend**: Copy `backend/.env.example` to `backend/.env`.
+2.  **API Keys**: Enter your **GROQ_API_KEY** in `backend/.env`. Get one [here](https://console.groq.com/keys).
 
-1.  **Backend**:
-    - Locate `backend/.env.example`.
-    - Create a copy named `backend/.env`.
-    - Add your **GROQ_API_KEY** (get it from [Groq Console](https://console.groq.com/keys)).
-2.  **Frontend**:
-    - Ensure your frontend points to the backend (defaults to `http://localhost:8000`).
+### 3. Launching
 
-### 3. Launching the Project
-
-#### The "SOTA" Way (Recommended for Windows)
-We've included a high-performance launcher that spins up the entire stack in one go.
-
+#### Quick-Start (Windows Recommended)
 ```powershell
 ./dev.ps1
 ```
 
-#### The Manual Way
-
-**Step 1: Start Qdrant (Vector Database)**
-```powershell
-docker compose up -d qdrant
-```
-
-**Step 2: Start Backend (FastAPI)**
-```powershell
-cd backend
-uv run python -m app.main
-```
-
-**Step 3: Start Frontend (Next.js)**
-```powershell
-cd frontend
-pnpm install
-pnpm dev
-```
+#### Manual Start
+1.  **Start Services**: `docker compose up -d qdrant`
+2.  **Backend**: `cd backend && uv run python -m app.main`
+3.  **Frontend**: `cd frontend && pnpm install && pnpm dev`
 
 ---
 
-## 🌐 Accessing the Application
+## 🛠️ Tech Stack
 
-Once launched, you can access the project at:
-- **Frontend**: `http://localhost:3000`
-- **Backend API**: `http://localhost:8000`
-- **Qdrant Dashboard**: `http://localhost:6333/dashboard`
+- **Frontend**: Next.js 15, Tailwind CSS, Zustand, Tldraw, Socket.IO Client.
+- **Backend**: FastAPI, LangGraph, Pydantic, Docling, Python-SocketIO.
+- **Persistence**: Qdrant (Vector Database).
+- **Inference**: Groq (Llama 3.3 / Whisper), Edge TTS.
 
 ---
 
-## 🛠️ Troubleshooting
+## 🤝 Contributing
 
-- **Missing Data**: If the search doesn't return results, ensure you've uploaded materials via the UI.
-- **Port Conflicts**: Ensure ports 3000, 8000, and 6333 are not in use by other applications.
-- **API Errors**: Double-check your `GROQ_API_KEY` in `backend/.env`.
+We welcome contributions! Please follow these steps:
+1.  **Fork** the project.
+2.  Create your **Feature Branch** (`git checkout -b feature/AmazingFeature`).
+3.  **Commit** your changes (`git commit -m 'Add some AmazingFeature'`).
+4.  **Push** to the branch (`git push origin feature/AmazingFeature`).
+5.  Open a **Pull Request**.
+
+## 📜 License
+
+Distributed under the **MIT License**. See `LICENSE` for more information.
 
 ---
 
 <div align="center">
-Built with ❤️ for NYU Hackathon 2025
+Built for NYU Hackathon 2025
 </div>
