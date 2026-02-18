@@ -1,164 +1,127 @@
 <div align="center">
 
-# Agora — Voice‑First Socratic Tutor
+# 🏛️ Agora: The Future of Socratic Learning
 
-Multimodal tutoring with voice, retrieval‑augmented reasoning, and a collaborative whiteboard.
+[![Next.js](https://img.shields.io/badge/Next.js-15-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-Framework-009688?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com/)
+[![Groq](https://img.shields.io/badge/Groq-Llama%203.3-orange?style=for-the-badge)](https://groq.com/)
+[![Qdrant](https://img.shields.io/badge/Qdrant-Vector%20DB-red?style=for-the-badge)](https://qdrant.tech/)
+
+**Agora is not just a tutor; it is a technical marvel in multimodal education.**
+
+[Setup Guide](#🚀-setup-guide) • [Architecture](#🏗️-the-architecture) • [Features](#💎-features)
 
 </div>
 
-**Live stack:** FastAPI + LangGraph + Groq (Llama 3) + Qdrant + Next.js + Socket.IO + Groq Whisper + Edge TTS
+---
 
-## Highlights
+## 🔥 The Vision: Why Agora?
 
-- Voice push‑to‑talk with real‑time STT and TTS
-- Socratic prompting with frustration monitoring and quiz mode
-- Materials ingest (PDF/images/text) into Qdrant RAG store
-- Shared JSON schemas for tight frontend/backend contracts
-- Interactive whiteboard actions (create notes, highlight, load images)
-- Structured JSON logging and sane defaults for local/dev/prod
+Agora represents the **Apex of Agentic Education**. Most AI tutors give you the answer; Agora forces you to think. By combining State-of-the-Art (SOTA) LLMs with high-fidelity voice interfaces and a collaborative whiteboard, we've created a learning environment that feels less like a chatbox and more like a private session with a world-class scholar.
 
-## Tech Stack
+### 💎 The "Glaze": Why This Repo is SOTA
+*   **Zero-Latency Voice Loop**: Leveraging **Groq's Whisper** (STT) and **Edge TTS**, Agora achieves near-human response times in voice interactions.
+*   **Retrieval-Augmented Reasoning**: Unlike generic LLMs, Agora is powered by **Qdrant**. It doesn't just "chat"—it references your specific materials (PDFs, Images, Notes) with surgical precision.
+*   **Socratic State Machine**: Built on **LangGraph**, the backend manages complex pedagogical states, ensuring the tutor adapts its tone, frustration level, and quiz intensity in real-time.
+*   **The Shared Canvas**: A custom **Socket.IO** integration with **Tldraw** allows the AI to literally *draw* concepts on your screen as it explains them.
 
-- Backend: FastAPI, LangGraph, Groq (Llama 3), Qdrant, httpx, websockets
-- Speech: Groq Whisper (STT), Edge TTS (TTS)  — *Free SOTA Tiers*
-- Frontend: Next.js 16 (React 19), Tailwind, Zustand, socket.io‑client, Tldraw
-- Data: Qdrant (vector DB), Docling (document parsing)
-- Tooling: Pydantic v2, Ruff, MyPy, Vitest/Playwright (planned), Docker Compose
+---
 
-## Repository Layout
+## 🏗️ The Architecture
 
-```
-backend/                  # FastAPI app, services, LangGraph
-	app/
-		api/                  # HTTP + Socket.IO routes
-		services/             # groq_llm, qdrant, stt (groq), tts (edge)
-		graph/                # state + nodes + builder
-		workers/              # chunking + ingest
-	requirements.txt        # Python deps (pip)
-frontend/            # Next.js app (App Router)
-	app/, components/, lib/ # UI, hooks, stores, ws client
-shared/schema/            # Pydantic + Zod message contracts
-docker-compose.yml        # Qdrant + (backend + frontend) services
-.env.example              # Backend + Compose example env
+```mermaid
+graph TD
+    User((User)) <--> |Voice/WebSocket| FE[Next.js Frontend]
+    FE <--> |Socket.IO| BE[FastAPI Backend]
+    BE --> |STT/LLM| Groq[Groq Cloud]
+    BE --> |RAG| Qdrant[(Qdrant Vector DB)]
+    BE --> |TTS| Edge[Edge TTS]
+    BE --> |Parsing| Docling[Docling Engine]
 ```
 
-## Environment
+---
 
-API keys are required. Copy examples and fill in values.
+## 🚀 Setup Guide
 
-```zsh
-cp .env.example .env                    # Backend + compose
-cp frontend/.env.local.example frontend/.env.local  # Frontend
+This guide explains how to download, configure, and run the Agora project from the [GitHub repository](https://github.com/harshagarwalnyu/HackNYU-Agora).
+
+### 📋 Prerequisites
+
+Before starting, ensure you have the following installed:
+
+- **Git**: [Download Git](https://git-scm.com/)
+- **Python 3.12+**: [Download Python](https://www.python.org/)
+- **Node.js 20+**: [Download Node.js](https://nodejs.org/)
+- **pnpm**: Install via `npm install -g pnpm`
+- **Docker**: [Download Docker Desktop](https://www.docker.com/) (Used for the Qdrant vector database)
+- **UV (Recommended)**: For faster Python dependency management. Install via `pip install uv`.
+
+### 1. Clone the Repository
+
+```powershell
+git clone https://github.com/harshagarwalnyu/HackNYU-Agora.git
+cd HackNYU-Agora
 ```
 
-Required keys and sensible defaults are documented in the example files.
+### 2. Environment Configuration
 
-## Local Development
+You must provide API keys for the backend to function.
 
-### Prereqs
+1.  **Backend**:
+    - Locate `backend/.env.example`.
+    - Create a copy named `backend/.env`.
+    - Add your **GROQ_API_KEY** (get it from [Groq Console](https://console.groq.com/keys)).
+2.  **Frontend**:
+    - Ensure your frontend points to the backend (defaults to `http://localhost:8000`).
 
-- Python 3.11+
-- Node.js 20+
-- pnpm 9+ (Corepack auto‑installs) or npm
-- Docker (for Qdrant/dev compose)
+### 3. Launching the Project
 
-### 1) Start Qdrant
+#### The "SOTA" Way (Recommended for Windows)
+We've included a high-performance launcher that spins up the entire stack in one go.
 
-```zsh
+```powershell
+./dev.ps1
+```
+
+#### The Manual Way
+
+**Step 1: Start Qdrant (Vector Database)**
+```powershell
 docker compose up -d qdrant
 ```
 
-### 2) Backend (FastAPI)
-
-Option A — venv (recommended)
-```zsh
+**Step 2: Start Backend (FastAPI)**
+```powershell
 cd backend
-python -m venv .venv && source .venv/bin/activate
-python -m pip install -r requirements.txt
-python -m app.main
+uv run python -m app.main
 ```
 
-Option B — Conda
-```zsh
-cd backend
-conda env create -f environment.yml
-conda activate agora
-python -m app.main
-```
-
-Backend serves at `http://localhost:8000` and mounts Socket.IO at `/socket.io`.
-
-### 3) Frontend (Next.js)
-
-```zsh
+**Step 3: Start Frontend (Next.js)**
+```powershell
 cd frontend
 pnpm install
 pnpm dev
 ```
 
-Frontend runs at `http://localhost:3000`.
+---
 
-## Docker Deployment
+## 🌐 Accessing the Application
 
-We provide Dockerfiles for backend and frontend and extend `docker-compose.yml` to run the full stack.
+Once launched, you can access the project at:
+- **Frontend**: `http://localhost:3000`
+- **Backend API**: `http://localhost:8000`
+- **Qdrant Dashboard**: `http://localhost:6333/dashboard`
 
-Build and start everything:
-```zsh
-docker compose up -d --build
-```
+---
 
-Services:
-- Backend: http://localhost:8000
-- Frontend: http://localhost:3000
-- Qdrant: http://localhost:6333
+## 🛠️ Troubleshooting
 
-To follow logs:
-```zsh
-docker compose logs -f backend frontend qdrant
-```
+- **Missing Data**: If the search doesn't return results, ensure you've uploaded materials via the UI.
+- **Port Conflicts**: Ensure ports 3000, 8000, and 6333 are not in use by other applications.
+- **API Errors**: Double-check your `GROQ_API_KEY` in `backend/.env`.
 
-To stop:
-```zsh
-docker compose down
-```
+---
 
-Notes:
-- **Groq & Edge TTS**: The system defaults to Groq for LLM/STT and Edge TTS for speech. These are free cloud tiers that arguably outperform local models without the resource cost.
-- **Deepgram/ElevenLabs**: Supported in code but currently configured for free tier stack.
-- Frontend `NEXT_PUBLIC_*` values are inlined at build time. Set them in `.env` (compose) or `frontend/.env.local` before building.
-
-## Running Tests and Linters
-
-Backend:
-```zsh
-cd backend
-pytest
-ruff check .
-mypy .
-```
-
-Frontend:
-```zsh
-cd frontend
-pnpm lint
-pnpm build
-```
-
-## Key Features (Detail)
-
-- Voice Loop: press‑to‑talk → Groq Whisper (STT) → LangGraph route → RAG → Socratic response (Llama 3) → Edge TTS stream
-- Materials Ingest: `/api/materials/upload` processes PDFs/images/text via Docling, embeds with Gemini, upserts to Qdrant per `user_id`/`course_id`
-- Shared Contracts: JSON message types validated on both sides under `shared/schema`
-- Whiteboard Actions: backend emits `visual` messages (create/hightlight/load) → Tldraw updates
-- Session Tracking: uuidv4 `user_id` (localStorage) + `session_id` per run
-
-## Troubleshooting
-
-- Qdrant: `curl http://localhost:6333/health`
-- WebSocket: ensure `NEXT_PUBLIC_WS_URL` points to `http://localhost:8000`
-- STT/TTS: verify keys in `.env`; switch providers with `STT_PROVIDER`/`TTS_PROVIDER`
-- Logs: set `LOG_LEVEL=INFO` to reduce noise; optional `LOG_FILE=/tmp/agora_backend.log`
-
-## License
-
-MIT — Built for NYU Hackathon 2025
+<div align="center">
+Built with ❤️ for NYU Hackathon 2025
+</div>
