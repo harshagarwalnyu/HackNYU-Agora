@@ -6,39 +6,18 @@ from unittest.mock import MagicMock, AsyncMock, patch
 @pytest.fixture
 def chunk_ingest_module():
     """
-    Sets up mocks for dependencies and imports app.workers.chunk_ingest
-    in an isolated environment. Returns the imported module.
+    Returns the app.chunk_ingest module.
+    Mocks for services should be applied using patch() in individual tests.
     """
-    # Create mocks
-    mock_llm_module = MagicMock()
-    mock_llm_client = MagicMock()
-    mock_llm_module.llm_client = mock_llm_client
-
-    mock_qdrant_module = MagicMock()
-    mock_qdrant_service = MagicMock()
-    mock_qdrant_module.qdrant_service = mock_qdrant_service
-
-    # Patch sys.modules to inject mocks
-    with patch.dict(sys.modules, {
-        "app.services.llm_client": mock_llm_module,
-        "app.services.qdrant_client": mock_qdrant_module,
-    }):
-        # Ensure we import a fresh version of the module
-        if "app.workers.chunk_ingest" in sys.modules:
-            del sys.modules["app.workers.chunk_ingest"]
-
-        import app.workers.chunk_ingest
-        yield app.workers.chunk_ingest
-
-        # Cleanup
-        if "app.workers.chunk_ingest" in sys.modules:
-            del sys.modules["app.workers.chunk_ingest"]
+    import app.chunk_ingest
+    return app.chunk_ingest
 
 @pytest.mark.asyncio
-async def test_parse_fallback_image(chunk_ingest_module):
+@patch("app.chunk_ingest.llm_client")
+async def test_parse_fallback_image(mock_llm_client, chunk_ingest_module):
     """Test fallback parsing for image files using Gemini."""
     parse_fallback = chunk_ingest_module.parse_fallback
-    llm_client = chunk_ingest_module.llm_client # The mock injected
+    llm_client = mock_llm_client
 
     file_path = "test_image.jpg"
     image_content = b"fake_image_content"

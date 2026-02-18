@@ -23,14 +23,16 @@ logger = logging.getLogger(__name__)
 
 
 # Node wrapper to add timing and message tracking
-def create_timed_node(node_func: Callable[[TutorState], Awaitable[TutorState]], node_name: str) -> Callable[[TutorState], Awaitable[TutorState]]:
+def create_timed_node(
+    node_func: Callable[[TutorState], Awaitable[TutorState]], node_name: str
+) -> Callable[[TutorState], Awaitable[TutorState]]:
     """
     Wrap a node function with timing and logging.
-    
+
     Args:
         node_func: Node function to wrap
         node_name: Name for logging
-        
+
     Returns:
         Wrapped function
     """
@@ -111,10 +113,14 @@ def build_tutor_graph() -> Any:
     workflow.add_node("socrates", cast(Any, create_timed_node(socrates_node, "socrates")))
     workflow.add_node("quiz", cast(Any, create_timed_node(quiz_node, "quiz")))
     workflow.add_node("reflector", cast(Any, create_timed_node(reflector_node, "reflector")))
-    workflow.add_node("update_memory", cast(Any, create_timed_node(update_memory_node, "update_memory")))
+    workflow.add_node(
+        "update_memory", cast(Any, create_timed_node(update_memory_node, "update_memory"))
+    )
     workflow.add_node("tts", cast(Any, create_timed_node(tts_node, "tts")))
 
-    logger.debug("Nodes added: load_memory, vision, router, rag, socrates, quiz, reflector, update_memory, tts")
+    logger.debug(
+        "Nodes added: load_memory, vision, router, rag, socrates, quiz, reflector, update_memory, tts"
+    )
 
     # Define edges
     logger.debug("Defining graph edges...")
@@ -124,7 +130,7 @@ def build_tutor_graph() -> Any:
 
     # Memory → Vision (Process any images)
     workflow.add_edge("load_memory", "vision")
-    
+
     # Vision → Router
     workflow.add_edge("vision", "router")
 
@@ -139,7 +145,7 @@ def build_tutor_graph() -> Any:
     # Both socrates and quiz → Reflector (Metacognition)
     workflow.add_edge("socrates", "reflector")
     workflow.add_edge("quiz", "reflector")
-    
+
     # Reflector → Update Memory
     workflow.add_edge("reflector", "update_memory")
 
@@ -188,10 +194,10 @@ def get_tutor_graph() -> Any:
 
 
 async def process_user_input(
-    state: TutorState, 
-    user_text: str, 
+    state: TutorState,
+    user_text: str,
     audio_format: str | None = None,
-    image_data: str | None = None
+    image_data: str | None = None,
 ) -> TutorState:
     """
     Process user input through the tutor graph.
@@ -224,7 +230,7 @@ async def process_user_input(
         state["last_user_text"] = user_text
         state["last_audio_format"] = audio_format
         state["image_data"] = image_data
-        state["image_context"] = None # Reset previous image context
+        state["image_context"] = None  # Reset previous image context
         state["turn_count"] += 1
         state["processing_time"] = 0.0
         state["error"] = None

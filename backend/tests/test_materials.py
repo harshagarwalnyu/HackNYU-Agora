@@ -1,64 +1,9 @@
-
-import sys
-import os
 import pytest
+import os
 from unittest.mock import MagicMock, AsyncMock, patch
 
 # Set environment variable for Settings
 os.environ["GROQ_API_KEY"] = "mock_key"
-
-# -----------------------------------------------------------------------------
-# 1. Mock heavy/missing dependencies in sys.modules BEFORE importing app modules
-# -----------------------------------------------------------------------------
-
-def mock_module(name):
-    if name in sys.modules:
-        return sys.modules[name]
-    mock = MagicMock()
-    sys.modules[name] = mock
-    return mock
-
-# Mock external services and libraries
-mock_groq = mock_module("groq")
-mock_groq.AsyncGroq = MagicMock()
-
-mock_groq_types = mock_module("groq.types")
-mock_groq_chat = mock_module("groq.types.chat")
-
-# Sentence Transformers & Torch
-mock_st = mock_module("sentence_transformers")
-mock_st.SentenceTransformer = MagicMock()
-mock_module("torch")
-mock_module("numpy")
-
-# Docling
-mock_docling = mock_module("docling")
-mock_docling_converter = mock_module("docling.document_converter")
-
-# Qdrant
-mock_qdrant = mock_module("qdrant_client")
-mock_qdrant.AsyncQdrantClient = MagicMock()
-mock_qdrant_http = mock_module("qdrant_client.http")
-mock_qdrant_models = mock_module("qdrant_client.http.models")
-mock_qdrant_exceptions = mock_module("qdrant_client.http.exceptions")
-mock_qdrant_exceptions.UnexpectedResponse = Exception
-
-# TTS / STT / Other
-mock_module("edge_tts")
-mock_module("google.generativeai")
-mock_module("langgraph")
-mock_module("langchain")
-mock_module("langchain_google_genai")
-mock_module("ddgs")
-mock_module("deepgram")
-mock_module("openai")
-mock_module("faster_whisper")
-mock_module("elevenlabs")
-mock_module("websockets")
-
-# Mock app.api.ws to avoid loading it and its dependencies
-mock_ws = mock_module("app.api.ws")
-mock_ws.sio = MagicMock()
 
 # -----------------------------------------------------------------------------
 # 2. Import app modules
@@ -108,10 +53,10 @@ def setup_test_storage(tmp_path):
 def mock_process_document():
     """Mock the process_document background task."""
     p1 = patch("app.api.materials.process_document", AsyncMock())
-    p2 = patch("app.workers.chunk_ingest.process_document", AsyncMock())
+    p2 = patch("app.chunk_ingest.process_document", AsyncMock())
 
     m1 = p1.start()
-    m2 = p2.start()
+    p2.start()
 
     yield m1  # We use the one in materials for assertions
 
@@ -329,7 +274,7 @@ def test_list_materials_special_chars():
 
     with patch.dict("app.api.materials.upload_status", test_data, clear=True):
         # URL encoded parameters handled by TestClient/FastAPI
-        response = client.get(f"/api/materials/list", params={"user_id": user_id, "course_id": course_id})
+        response = client.get("/api/materials/list", params={"user_id": user_id, "course_id": course_id})
 
         assert response.status_code == 200
         data = response.json()

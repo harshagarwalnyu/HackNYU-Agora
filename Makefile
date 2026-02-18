@@ -42,13 +42,17 @@ status:
 	@echo "Qdrant:"
 	@curl -s http://localhost:6333 | jq -r .title || echo "❌ Not running"
 
+dev:
+	@echo "Starting Agora in development mode..."
+	@powershell ./dev.ps1
+
 backend-dev:
-	@echo "Starting backend development server..."
-	@cd backend && /Users/AshishR_T/miniconda3/envs/agora/bin/python -m app.main
+	@echo "Starting backend development server (uv)..."
+	@cd backend && uv run python -m app.main
 
 frontend-dev:
-	@echo "Starting frontend development server..."
-	@cd frontendOther && pnpm dev
+	@echo "Starting frontend development server (pnpm)..."
+	@cd frontend && pnpm dev
 
 logs:
 	@echo "Tailing logs (Ctrl+C to stop)..."

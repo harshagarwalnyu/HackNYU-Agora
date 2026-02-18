@@ -35,7 +35,7 @@ backend/                  # FastAPI app, services, LangGraph
 		graph/                # state + nodes + builder
 		workers/              # chunking + ingest
 	requirements.txt        # Python deps (pip)
-frontendOther/            # Next.js app (App Router)
+frontend/            # Next.js app (App Router)
 	app/, components/, lib/ # UI, hooks, stores, ws client
 shared/schema/            # Pydantic + Zod message contracts
 docker-compose.yml        # Qdrant + (backend + frontend) services
@@ -48,7 +48,7 @@ API keys are required. Copy examples and fill in values.
 
 ```zsh
 cp .env.example .env                    # Backend + compose
-cp frontendOther/.env.local.example frontendOther/.env.local  # Frontend
+cp frontend/.env.local.example frontend/.env.local  # Frontend
 ```
 
 Required keys and sensible defaults are documented in the example files.
@@ -91,7 +91,7 @@ Backend serves at `http://localhost:8000` and mounts Socket.IO at `/socket.io`.
 ### 3) Frontend (Next.js)
 
 ```zsh
-cd frontendOther
+cd frontend
 pnpm install
 pnpm dev
 ```
@@ -125,7 +125,7 @@ docker compose down
 Notes:
 - **Groq & Edge TTS**: The system defaults to Groq for LLM/STT and Edge TTS for speech. These are free cloud tiers that arguably outperform local models without the resource cost.
 - **Deepgram/ElevenLabs**: Supported in code but currently configured for free tier stack.
-- Frontend `NEXT_PUBLIC_*` values are inlined at build time. Set them in `.env` (compose) or `frontendOther/.env.local` before building.
+- Frontend `NEXT_PUBLIC_*` values are inlined at build time. Set them in `.env` (compose) or `frontend/.env.local` before building.
 
 ## Running Tests and Linters
 
@@ -139,7 +139,7 @@ mypy .
 
 Frontend:
 ```zsh
-cd frontendOther
+cd frontend
 pnpm lint
 pnpm build
 ```

@@ -7,7 +7,7 @@ import logging
 import json
 import asyncio
 from functools import partial
-from typing import Any, Dict, List, Optional, cast, Union
+from typing import Any, Dict, List, Optional, cast
 
 from groq import AsyncGroq
 from groq.types.chat import ChatCompletionMessageParam
@@ -41,8 +41,10 @@ class LLMClient:
         try:
             # Check for placeholder key
             if self.api_key == "your_groq_api_key_here" or not self.api_key:
-                logger.warning("Empty or placeholder GROQ_API_KEY detected. AI features will fail until a valid key is provided in .env.")
-            
+                logger.warning(
+                    "Empty or placeholder GROQ_API_KEY detected. AI features will fail until a valid key is provided in .env."
+                )
+
             logger.debug("Initializing Groq client...")
             self.client = AsyncGroq(api_key=self.api_key)
 
@@ -118,7 +120,7 @@ class LLMClient:
                 logger.error(friendly_msg, extra={"error": error_msg})
                 # We return it as a string instead of raising so the graph can handle it or the user sees it
                 return f"Error: {friendly_msg}"
-            
+
             logger.error("Text generation failed", exc_info=True)
             raise
 
@@ -151,6 +153,26 @@ class LLMClient:
             logger.error("JSON generation failed", exc_info=True)
             raise
 
+    async def embed_batch(self, texts: List[str]) -> List[List[float]]:
+        """Generate batch local embeddings."""
+        try:
+            if not self.embedding_model:
+                raise RuntimeError("Embedding model not initialized")
+
+            if not texts:
+                return []
+
+            # Run on a separate thread to prevent blocking the event loop
+            loop = asyncio.get_running_loop()
+            embeddings = await loop.run_in_executor(
+                None, partial(self.embedding_model.encode, texts)
+            )
+            return cast(List[List[float]], embeddings.tolist())
+
+        except Exception:
+            logger.error("Batch embedding generation failed", exc_info=True)
+            raise
+
     async def embed_text(self, text: str) -> List[float]:
         """Generate local embeddings."""
         try:
@@ -160,9 +182,7 @@ class LLMClient:
             # Run on a separate thread to prevent blocking the event loop
             # SentenceTransformer.encode is CPU-bound but releases GIL, so threading is effective
             loop = asyncio.get_running_loop()
-            embedding = await loop.run_in_executor(
-                None, partial(self.embedding_model.encode, text)
-            )
+            embedding = await loop.run_in_executor(None, partial(self.embedding_model.encode, text))
             return cast(List[float], embedding.tolist())
 
         except Exception:
@@ -196,7 +216,9 @@ class LLMClient:
             if not self.client:
                 raise RuntimeError("LLM client not initialized")
 
-            logger.debug("Calling Groq Vision API...", extra={"model": "llama-3.2-90b-vision-preview"})
+            logger.debug(
+                "Calling Groq Vision API...", extra={"model": "llama-3.2-90b-vision-preview"}
+            )
 
             # Prepare image content
             img_content: Dict[str, Any] = {"type": "image_url", "image_url": {}}
@@ -205,6 +227,7 @@ class LLMClient:
                 img_content["image_url"]["url"] = image_url
             elif image_data:
                 import base64
+
                 b64_data = base64.b64encode(image_data).decode("utf-8")
                 data_url = f"data:{mime_type};base64,{b64_data}"
                 img_content["image_url"]["url"] = data_url
@@ -213,15 +236,18 @@ class LLMClient:
 
             response = await self.client.chat.completions.create(
                 model="llama-3.2-90b-vision-preview",
-                messages=cast(List[ChatCompletionMessageParam], [
-                    {
-                        "role": "user",
-                        "content": [
-                            {"type": "text", "text": prompt},
-                            img_content,
-                        ],
-                    }
-                ]),
+                messages=cast(
+                    List[ChatCompletionMessageParam],
+                    [
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "text", "text": prompt},
+                                img_content,
+                            ],
+                        }
+                    ],
+                ),
                 temperature=0.5,
                 max_tokens=1024,
             )

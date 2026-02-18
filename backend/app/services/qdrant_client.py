@@ -139,8 +139,8 @@ class QdrantService:
                 logger.info(
                     f"Collection already exists: {collection_name}",
                     extra={
-                        "points_count": collection_info.points_count,
-                        "vectors_count": collection_info.vectors_count,
+                        "points_count": getattr(collection_info, "points_count", 0),
+                        "vectors_count": getattr(collection_info, "indexed_vectors_count", 0),
                     },
                 )
                 return
@@ -297,16 +297,16 @@ class QdrantService:
             )
 
             # Search
-            results = await self.client.search(
+            results = await self.client.query_points(
                 collection_name=self.collection_notes,
-                query_vector=query_embedding,
+                query=query_embedding,
                 query_filter=query_filter,
                 limit=limit,
             )
 
             # Format results
             formatted_results = []
-            for hit in results:
+            for hit in results.points:
                 formatted_results.append(
                     {
                         "id": hit.id,

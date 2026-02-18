@@ -1,12 +1,11 @@
 
-import pytest
 import sys
 import os
 
 # Ensure backend is in path
 sys.path.append(os.path.join(os.getcwd(), 'backend'))
 
-from app.utils.text_processing import chunk_text
+from app.text_processing import chunk_text
 
 def test_chunk_text_normal():
     text = "This is a long text that needs to be chunked into smaller pieces."

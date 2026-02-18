@@ -1,26 +1,7 @@
-import sys
 from unittest.mock import AsyncMock, MagicMock, patch
-
-# Mock heavy dependencies in sys.modules to avoid installation issues and speed up tests
-# This must happen BEFORE importing app modules that use them
-sys.modules["groq"] = MagicMock()
-sys.modules["groq.types"] = MagicMock()
-sys.modules["groq.types.chat"] = MagicMock()
-sys.modules["sentence_transformers"] = MagicMock()
-# torch and numpy are often required by sentence_transformers
-sys.modules["torch"] = MagicMock()
-sys.modules["numpy"] = MagicMock()
-
 import pytest
 import pytest_asyncio
-import asyncio
-import json
 import base64
-
-# Now import LLMClient. Since we mocked the modules, the imports inside will succeed using the mocks.
-# However, we need to ensure that the mocked modules provide the classes we expect.
-# For example, `from groq import AsyncGroq` will get `sys.modules["groq"].AsyncGroq`.
-# `MagicMock` automatically creates attributes on access, so this should work.
 
 from app.services.llm_client import LLMClient
 
@@ -36,6 +17,10 @@ def mock_settings():
 @pytest.fixture
 def mock_groq():
     with patch("app.services.llm_client.AsyncGroq") as mock:
+        mock_client = AsyncMock()
+        mock_client.close = AsyncMock()
+        mock_client.chat.completions.create = AsyncMock(return_value=MagicMock())
+        mock.return_value = mock_client
         yield mock
 
 @pytest.fixture

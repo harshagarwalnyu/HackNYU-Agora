@@ -1,26 +1,13 @@
-import sys
 import unittest
-from unittest.mock import MagicMock, AsyncMock
-
-# Mock dependencies before they are imported
-mock_edge_tts = MagicMock()
-sys.modules["edge_tts"] = mock_edge_tts
-
-mock_pydantic = MagicMock()
-sys.modules["pydantic"] = mock_pydantic
-sys.modules["pydantic_settings"] = MagicMock()
-
-mock_config = MagicMock()
-mock_config.settings.tts_voice = "en-US-AriaNeural"
-sys.modules["app.config"] = mock_config
-
+from unittest.mock import patch
 from app.services.tts_service import EdgeTTS
 
-class TestEdgeTTS(unittest.IsolatedAsyncioTestCase):
-    def setUp(self):
-        mock_edge_tts.Communicate.reset_mock()
+# Mock dependencies used globally or during initialization if needed
+# But better to patch them where they are used.
 
-    async def test_edge_tts_synthesize_success(self):
+class TestEdgeTTS(unittest.IsolatedAsyncioTestCase):
+    @patch("app.services.tts_service.edge_tts.Communicate")
+    async def test_edge_tts_synthesize_success(self, mock_communicate_class):
         # Arrange
         tts = EdgeTTS()
         mock_chunks = [
@@ -33,8 +20,7 @@ class TestEdgeTTS(unittest.IsolatedAsyncioTestCase):
             for chunk in mock_chunks:
                 yield chunk
 
-        # Setup the mock Communicate in the already mocked edge_tts
-        mock_communicate_class = mock_edge_tts.Communicate
+        # Setup the mock Communicate instance
         mock_instance = mock_communicate_class.return_value
         mock_instance.stream = mock_stream
 
@@ -45,7 +31,8 @@ class TestEdgeTTS(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result, b"chunk1chunk2")
         mock_communicate_class.assert_called_once_with("Hello world", tts.voice)
 
-    async def test_edge_tts_synthesize_empty_audio(self):
+    @patch("app.services.tts_service.edge_tts.Communicate")
+    async def test_edge_tts_synthesize_empty_audio(self, mock_communicate_class):
         # Arrange
         tts = EdgeTTS()
 
@@ -53,8 +40,7 @@ class TestEdgeTTS(unittest.IsolatedAsyncioTestCase):
             if False:
                 yield {}
 
-        # Setup the mock Communicate in the already mocked edge_tts
-        mock_communicate_class = mock_edge_tts.Communicate
+        # Setup the mock Communicate instance
         mock_instance = mock_communicate_class.return_value
         mock_instance.stream = mock_stream_empty
 

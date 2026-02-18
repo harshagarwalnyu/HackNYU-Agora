@@ -1,26 +1,5 @@
-import sys
 import os
-from unittest.mock import AsyncMock, MagicMock, patch
-
-# Mock heavy dependencies in sys.modules BEFORE importing application code
-# This prevents ImportErrors for missing libraries and speeds up tests
-sys.modules["groq"] = MagicMock()
-sys.modules["groq.types"] = MagicMock()
-sys.modules["groq.types.chat"] = MagicMock()
-sys.modules["sentence_transformers"] = MagicMock()
-sys.modules["torch"] = MagicMock()
-sys.modules["numpy"] = MagicMock()
-sys.modules["transformers"] = MagicMock()
-sys.modules["qdrant_client"] = MagicMock()
-sys.modules["qdrant_client.http"] = MagicMock()
-sys.modules["qdrant_client.http.models"] = MagicMock()
-sys.modules["qdrant_client.http.exceptions"] = MagicMock()
-sys.modules["docling"] = MagicMock()
-sys.modules["docling.document_converter"] = MagicMock()
-sys.modules["PyPDF2"] = MagicMock()
-sys.modules["edge_tts"] = MagicMock()
-
-# Now imports can proceed safely
+from unittest.mock import patch
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -29,7 +8,7 @@ from fastapi.testclient import TestClient
 os.environ["GROQ_API_KEY"] = "mock_key"
 
 # Import the router to test
-# This will trigger imports of app.config, app.workers.chunk_ingest, etc.
+# This will trigger imports of app.config, app.chunk_ingest, etc.
 # Since we mocked the heavy modules, this should succeed.
 from app.api.materials import router
 from app.config import settings

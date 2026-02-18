@@ -1,6 +1,5 @@
 
 import os
-import sys
 import asyncio
 import time
 import pytest
@@ -11,7 +10,6 @@ os.environ["GROQ_API_KEY"] = "mock_key"
 
 # Now import app modules
 from app.services.qdrant_client import QdrantService
-from qdrant_client.http import models
 
 @pytest.fixture
 def mock_qdrant_client():
@@ -23,10 +21,10 @@ def mock_qdrant_client():
 
     client.upsert.side_effect = simulated_upsert
 
-    # Mock search to simulate network delay without blocking
-    async def simulated_search(*args, **kwargs):
+    # Mock query_points to simulate network delay without blocking
+    async def simulated_query(*args, **kwargs):
         await asyncio.sleep(0.01)
-        # Return a list of hits
+        # Return a SearchResponse like object
         hit = MagicMock()
         hit.id = "test_id"
         hit.score = 0.95
@@ -36,9 +34,11 @@ def mock_qdrant_client():
             "user_id": "test_user",
             "course_id": "test_course"
         }
-        return [hit]
+        res = MagicMock()
+        res.points = [hit]
+        return res
 
-    client.search.side_effect = simulated_search
+    client.query_points.side_effect = simulated_query
     return client
 
 @pytest.mark.asyncio
@@ -120,9 +120,9 @@ async def test_search_notes_is_async_and_non_blocking(mock_qdrant_client):
 
         duration = time.time() - start_time
 
-        # Verify search was called
-        assert mock_qdrant_client.search.called
-        assert mock_qdrant_client.search.call_count == 1
+        # Verify query_points was called
+        assert mock_qdrant_client.query_points.called
+        assert mock_qdrant_client.query_points.call_count == 1
 
         # Verify results
         assert len(results) == 1

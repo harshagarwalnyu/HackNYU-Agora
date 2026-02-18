@@ -49,8 +49,10 @@ class GroqWhisperSTT(STTEngine):
         try:
             # Check for placeholder key
             if self.api_key == "your_groq_api_key_here" or not self.api_key:
-                logger.warning("Empty or placeholder GROQ_API_KEY detected for STT. Transcription will fail.")
-                
+                logger.warning(
+                    "Empty or placeholder GROQ_API_KEY detected for STT. Transcription will fail."
+                )
+
             logger.debug("Initializing Groq client for STT...")
             self.client = AsyncGroq(api_key=self.api_key)
             logger.info("Groq STT initialized successfully")
@@ -102,7 +104,7 @@ class GroqWhisperSTT(STTEngine):
                 friendly_msg = "Invalid or missing Groq API Key. Please check your .env file and ensure GROQ_API_KEY is set correctly."
                 logger.error(friendly_msg, extra={"error": error_msg})
                 raise RuntimeError(friendly_msg) from e
-                
+
             logger.error("Groq transcription failed", extra={"error": str(e)}, exc_info=True)
             raise
 

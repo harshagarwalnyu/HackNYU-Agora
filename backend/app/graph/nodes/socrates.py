@@ -6,8 +6,15 @@ Generates questions, analogies, and guidance without giving direct answers.
 import logging
 
 from app.config import settings
-from app.graph.state import TutorState, VisualAction, get_conversation_context
+from app.graph.state import (
+    MemorySummary,
+    TutorState,
+    VisualAction,
+    VisualExtractionResult,
+    get_conversation_context,
+)
 from app.services.llm_client import llm_client
+from app.logging_config import log_exception
 
 logger = logging.getLogger(__name__)
 
@@ -63,23 +70,17 @@ def build_socratic_prompt(state: TutorState) -> str:
     context = get_conversation_context(state, max_turns=5)
 
     # RAG context
-    rag_text = ""
-    if state["rag_context"]:
-        rag_chunks = []
-        for idx, ctx in enumerate(state["rag_context"][:3], 1):
-            rag_chunks.append(f"[Note {idx}] {ctx['text']}")
-        rag_text = "\n".join(rag_chunks)
+    rag_text = (
+        "\n".join(
+            f"[Note {idx}] {ctx['text']}"
+            for idx, ctx in enumerate(state["rag_context"][: settings.rag_context_limit], 1)
+        )
+        if state["rag_context"]
+        else ""
+    )
 
     # Memory context
-    memory_text = ""
-    # Memory context
-    memory_text = ""
-    memory = state.get("memory_summary")
-    if memory:
-        if memory["mastered"]:
-            memory_text += f"Student has mastered: {', '.join(memory['mastered'])}\n"
-        if memory["confused"]:
-            memory_text += f"Student struggles with: {', '.join(memory['confused'])}\n"
+    memory_text = _format_memory_context(state.get("memory_summary"))
 
     # Frustration context
     frustration_note = ""
@@ -117,7 +118,7 @@ Generate your Socratic response:"""
     return prompt
 
 
-def extract_visual_actions(response_text: str) -> tuple[str, list[VisualAction]]:
+def extract_visual_actions(response_text: str) -> VisualExtractionResult:
     """
     Extract visual action commands from response text.
 
@@ -125,7 +126,7 @@ def extract_visual_actions(response_text: str) -> tuple[str, list[VisualAction]]
         response_text: Generated response
 
     Returns:
-        Tuple of (cleaned_text, visual_actions)
+        VisualExtractionResult with cleaned_text and actions list
     """
     import re
 
@@ -157,7 +158,7 @@ def extract_visual_actions(response_text: str) -> tuple[str, list[VisualAction]]
     # Remove visual commands from text
     cleaned_text = re.sub(pattern, "", cleaned_text).strip()
 
-    return cleaned_text, visual_actions
+    return {"cleaned_text": cleaned_text, "actions": visual_actions}
 
 
 async def socrates_node(state: TutorState) -> TutorState:
@@ -199,38 +200,29 @@ async def socrates_node(state: TutorState) -> TutorState:
         logger.debug("Gemini response generated", extra={"response_length": len(response)})
 
         # Extract visual actions
-        cleaned_response, visual_actions = extract_visual_actions(response)
-
-        state["response_text"] = cleaned_response
-        state["visual_actions"] = visual_actions
+        result = extract_visual_actions(response)
+        state["response_text"] = result["cleaned_text"]
+        state["visual_actions"] = result["actions"]
         state["should_tts"] = True
 
         logger.info(
             "Socratic response generated",
             extra={
-                "response_length": len(cleaned_response),
-                "visual_actions_count": len(visual_actions),
+                "response_length": len(result["cleaned_text"]),
+                "visual_actions_count": len(result["actions"]),
                 "frustration_level": state["frustration_level"],
             },
         )
 
         # Log response preview
-        logger.debug("Response preview", extra={"preview": cleaned_response[:200]})
+        logger.debug("Response preview", extra={"preview": result["cleaned_text"][:200]})
 
         logger.debug("=== SOCRATES NODE END ===")
 
         return state
 
     except Exception as e:
-        logger.error(
-            "Socrates node failed",
-            extra={
-                "error": str(e),
-                "error_type": type(e).__name__,
-                "user_id": state.get("user_id"),
-            },
-            exc_info=True,
-        )
+        log_exception(logger, "Socrates node failed", e, {"user_id": state.get("user_id")})
 
         # Fallback response
         state["response_text"] = (
@@ -241,6 +233,27 @@ async def socrates_node(state: TutorState) -> TutorState:
         state["error"] = f"Socrates error: {str(e)}"
 
         return state
+
+
+def _format_memory_context(memory: MemorySummary | None) -> str:
+    """Format memory summary for prompt injection.
+
+    Args:
+        memory: Memory summary dict with 'mastered' and 'confused' keys
+
+    Returns:
+        Formatted string for prompt embedding
+    """
+    if not memory:
+        return ""
+
+    parts = []
+    if memory.get("mastered"):
+        parts.append(f"Student has mastered: {', '.join(memory['mastered'])}")
+    if memory.get("confused"):
+        parts.append(f"Student struggles with: {', '.join(memory['confused'])}")
+
+    return "\n".join(parts) + ("\n" if parts else "")
 
 
 logger.debug("Socrates node module loaded")
