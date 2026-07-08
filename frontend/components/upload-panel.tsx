@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from "react";
 import { useSessionStore } from '@/lib/store/session';
 import { useMaterialsStore } from '@/lib/store/materials';
 import { listMaterials, uploadMaterial, pollJobStatus, validateFile } from '@/lib/services/materials-api';
@@ -32,18 +32,18 @@ export function UploadPanel({
     setMaterials,
   } = useMaterialsStore();
 
-  useEffect(() => {
-    loadMaterials();
-  }, [userId, currentTopic]);
-
-  async function loadMaterials() {
+  const loadMaterials = useCallback(async () => {
     try {
       const mats = await listMaterials(userId, currentTopic);
       setMaterials(mats);
-    } catch (err) {
+    } catch {
       // Silent fail - UI remains responsive
     }
-  }
+  }, [userId, currentTopic, setMaterials]);
+
+  useEffect(() => {
+    loadMaterials();
+  }, [loadMaterials]);
 
   async function handleFileInputChange(file: File) {
     if (!file) return;

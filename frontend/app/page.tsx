@@ -94,6 +94,9 @@ export default function AgoraPage() {
   };
 
   useEffect(() => {
+    // Orb state has multiple writers (voice loop, send handlers); syncing from
+    // isLoading here is intentional and cheap.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setOrbState(isLoading ? 'thinking' : 'idle');
   }, [isLoading]);
 
