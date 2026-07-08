@@ -121,3 +121,7 @@ backend/database.db
 *.db
 *.sqlite
 *.sqlite3
+# Local tooling
+.mcp.json
+.serena/
+*.tsbuildinfo
